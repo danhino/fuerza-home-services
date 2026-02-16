@@ -55,6 +55,47 @@ const es = {
     'request.success': '¡Solicitud enviada!',
     'request.successBody': 'Estamos buscando un técnico cerca de ti.',
     'request.failed': 'No se pudo enviar la solicitud',
+    'request.issueType': '¿Cuál es el problema?',
+    'request.video': 'Video',
+    'request.addVideo': 'Agregar video',
+    'request.videoAdded': 'Video adjunto',
+    'request.videoTooLarge': 'El video debe ser menor a 50 MB',
+    'request.videoTooLong': 'El video debe durar menos de 60 segundos',
+    'request.videoAvailable': '🎥 Video disponible',
+
+    // ── Issue Tiles — Plomería ───────────────────────
+    'issue.plumber.leakUnderSink': 'Fuga debajo del fregadero',
+    'issue.plumber.replaceToilet': 'Reemplazar inodoro',
+    'issue.plumber.showerLever': 'Palanca de ducha rota',
+    'issue.plumber.cloggedSink': 'Fregadero tapado',
+    'issue.plumber.waterHeater': 'Calentador no calienta',
+    'issue.plumber.runningToilet': 'Inodoro corriendo',
+    'issue.plumber.lowPressure': 'Baja presión de agua',
+
+    // ── Issue Tiles — Electricidad ───────────────────
+    'issue.electrician.replaceOutlet': 'Reemplazar tomacorriente',
+    'issue.electrician.ceilingFan': 'Instalar ventilador de techo',
+    'issue.electrician.evCharger': 'Instalar cargador Tesla/EV',
+    'issue.electrician.breaker': 'Reemplazo de breaker',
+    'issue.electrician.lightSwitch': 'Apagador no funciona',
+    'issue.electrician.gfci': 'GFCI se dispara',
+    'issue.electrician.lightFixture': 'Instalar lámpara',
+
+    // ── Issue Tiles — Piscina ────────────────────────
+    'issue.pool.pumpDiagnosis': 'Diagnóstico de bomba',
+    'issue.pool.cleaning': 'Limpieza de piscina',
+    'issue.pool.filterCleaning': 'Limpieza de filtro',
+    'issue.pool.pumpStopped': 'Bomba detenida',
+    'issue.pool.stains': 'Manchas en piscina',
+    'issue.pool.algae': 'Algas',
+    'issue.pool.cloudyWater': 'Agua turbia',
+    'issue.pool.lights': 'Luces',
+
+    // ── Issue Tiles — Limpieza de casa ───────────────
+    'issue.cleaning.s': 'S',
+    'issue.cleaning.m': 'M',
+    'issue.cleaning.l': 'L',
+    'issue.cleaning.xl': 'XL',
 
     // ── Jobs ─────────────────────────────────────────
     'jobs.title': 'Trabajos',

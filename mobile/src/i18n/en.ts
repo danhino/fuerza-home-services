@@ -55,6 +55,47 @@ const en = {
     'request.success': 'Request Submitted!',
     'request.successBody': 'We are searching for a technician near you.',
     'request.failed': 'Failed to submit request',
+    'request.issueType': 'What\'s the issue?',
+    'request.video': 'Video',
+    'request.addVideo': 'Add Video',
+    'request.videoAdded': 'Video attached',
+    'request.videoTooLarge': 'Video must be under 50 MB',
+    'request.videoTooLong': 'Video must be under 60 seconds',
+    'request.videoAvailable': '🎥 Video available',
+
+    // ── Issue Tiles — Plumbing ───────────────────────
+    'issue.plumber.leakUnderSink': 'Leak under sink',
+    'issue.plumber.replaceToilet': 'Replace toilet',
+    'issue.plumber.showerLever': 'Shower lever broken',
+    'issue.plumber.cloggedSink': 'Clogged sink',
+    'issue.plumber.waterHeater': 'Water heater not heating',
+    'issue.plumber.runningToilet': 'Running toilet',
+    'issue.plumber.lowPressure': 'Low water pressure',
+
+    // ── Issue Tiles — Electrical ─────────────────────
+    'issue.electrician.replaceOutlet': 'Replace outlet',
+    'issue.electrician.ceilingFan': 'Ceiling fan install',
+    'issue.electrician.evCharger': 'Tesla/EV charger install',
+    'issue.electrician.breaker': 'Breaker replacement',
+    'issue.electrician.lightSwitch': 'Light switch not working',
+    'issue.electrician.gfci': 'GFCI keeps tripping',
+    'issue.electrician.lightFixture': 'Light fixture install',
+
+    // ── Issue Tiles — Pool ───────────────────────────
+    'issue.pool.pumpDiagnosis': 'Pool pump diagnosis',
+    'issue.pool.cleaning': 'Pool cleaning',
+    'issue.pool.filterCleaning': 'Filter cleaning',
+    'issue.pool.pumpStopped': 'Pump stopped',
+    'issue.pool.stains': 'Pool stains',
+    'issue.pool.algae': 'Algae',
+    'issue.pool.cloudyWater': 'Water cloudy',
+    'issue.pool.lights': 'Lights',
+
+    // ── Issue Tiles — House Cleaning ─────────────────
+    'issue.cleaning.s': 'S',
+    'issue.cleaning.m': 'M',
+    'issue.cleaning.l': 'L',
+    'issue.cleaning.xl': 'XL',
 
     // ── Jobs ─────────────────────────────────────────
     'jobs.title': 'Jobs',

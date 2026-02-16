@@ -86,6 +86,8 @@ model Job {
   technician             TechnicianProfile?      @relation(fields: [technicianId], references: [userId])
   trade                  Trade
   description            String
+  issueTag               String?
+  videoUrl               String?
   photos                 String[]
   address                String
   locationLat            Float

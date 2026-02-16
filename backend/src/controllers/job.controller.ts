@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 export const createJob = async (req: AuthRequest, res: Response) => {
     try {
         const customerId = req.user.userId;
-        const { trade, description, address, lat, lng, photos } = req.body;
+        const { trade, description, address, lat, lng, photos, issueTag, videoUrl } = req.body;
 
         const job = await prisma.job.create({
             data: {
@@ -19,6 +19,8 @@ export const createJob = async (req: AuthRequest, res: Response) => {
                 locationLat: lat,
                 locationLng: lng,
                 status: JobStatus.REQUESTED,
+                issueTag: issueTag || null,
+                videoUrl: videoUrl || null,
                 photos: photos || [],
             },
         });

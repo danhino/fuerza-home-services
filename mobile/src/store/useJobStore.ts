@@ -12,6 +12,8 @@ export interface Job {
     trade: string;
     photos?: string[];
     address?: string;
+    issueTag?: string;
+    videoUrl?: string;
     customer?: { user: { name: string; preferredLanguage?: string } };
     technician?: { user: { name: string } };
     estimate?: { currentAmount: number };

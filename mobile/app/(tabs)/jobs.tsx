@@ -1,15 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl, Image } from 'react-native';
+import {
+    View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
+    RefreshControl, Image, Modal, Dimensions, Linking
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { useJobStore, Job } from '../../src/store/useJobStore';
 import { useThemeColor } from '../../src/hooks/useThemeColor';
 import { t, useLanguageStore } from '../../src/i18n';
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 export default function JobsScreen() {
     const { user } = useAuthStore();
     const { jobs, fetchJobs, initializeSocketListeners, cleanupSocketListeners } = useJobStore();
     const [refreshing, setRefreshing] = useState(false);
+    const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+    const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
     // Force re-render on language change
     const language = useLanguageStore((s) => s.language);
 
@@ -60,6 +68,13 @@ export default function JobsScreen() {
                     )}
                 </View>
 
+                {isTechnician && item.issueTag && (
+                    <View style={styles.issueTagBadge}>
+                        <Text style={styles.issueTagText}>
+                            {t(`issue.${item.trade.toLowerCase()}.${item.issueTag}`) || item.issueTag}
+                        </Text>
+                    </View>
+                )}
                 <View style={styles.contentSection}>
                     <View style={styles.infoRow}>
                         <Text style={[styles.label, { color: textColor }]}>{t('jobs.customer')}:</Text>
@@ -82,10 +97,23 @@ export default function JobsScreen() {
                             showsHorizontalScrollIndicator={false}
                             keyExtractor={(p, i) => `${item.id}-photo-${i}`}
                             renderItem={({ item: photoUri }) => (
-                                <Image source={{ uri: photoUri }} style={styles.jobPhoto} />
+                                <TouchableOpacity onPress={() => setSelectedPhoto(photoUri)}>
+                                    <Image source={{ uri: photoUri }} style={styles.jobPhoto} />
+                                </TouchableOpacity>
                             )}
                             style={styles.photoList}
                         />
+                    )}
+
+                    {isTechnician && item.videoUrl && (
+                        <TouchableOpacity
+                            style={styles.videoIndicator}
+                            onPress={() => setSelectedVideo(item.videoUrl!)}
+                        >
+                            <Ionicons name="videocam" size={16} color="#007AFF" />
+                            <Text style={styles.videoIndicatorText}>{t('request.videoAvailable')}</Text>
+                            <Ionicons name="open-outline" size={14} color="#007AFF" />
+                        </TouchableOpacity>
                     )}
                 </View>
 
@@ -110,6 +138,48 @@ export default function JobsScreen() {
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 />
             )}
+
+            {/* Full-screen photo viewer */}
+            <Modal visible={!!selectedPhoto} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedPhoto(null)}>
+                        <Ionicons name="close-circle" size={36} color="#fff" />
+                    </TouchableOpacity>
+                    {selectedPhoto && (
+                        <Image
+                            source={{ uri: selectedPhoto }}
+                            style={styles.modalImage}
+                            resizeMode="contain"
+                        />
+                    )}
+                </View>
+            </Modal>
+
+            {/* Full-screen video viewer */}
+            <Modal visible={!!selectedVideo} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedVideo(null)}>
+                        <Ionicons name="close-circle" size={36} color="#fff" />
+                    </TouchableOpacity>
+                    {selectedVideo && (
+                        <View style={styles.videoModalContent}>
+                            <Ionicons name="videocam" size={64} color="#fff" />
+                            <Text style={styles.videoModalText}>{t('request.videoAvailable')}</Text>
+                            <TouchableOpacity
+                                style={styles.videoPlayButton}
+                                onPress={() => {
+                                    Linking.openURL(selectedVideo).catch(() => {
+                                        Alert.alert(t('home.error'), 'Could not open video');
+                                    });
+                                }}
+                            >
+                                <Ionicons name="play-circle" size={28} color="#fff" />
+                                <Text style={styles.videoPlayText}>Open Video</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -134,6 +204,35 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         fontSize: 11,
         textTransform: 'uppercase',
+    },
+    issueTagBadge: {
+        alignSelf: 'flex-start',
+        backgroundColor: '#E8F0FE',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        marginTop: 6,
+    },
+    issueTagText: {
+        color: '#007AFF',
+        fontWeight: '600',
+        fontSize: 12,
+    },
+    videoIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 8,
+        backgroundColor: '#E8F4FD',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 12,
+    },
+    videoIndicatorText: {
+        color: '#007AFF',
+        fontWeight: '600',
+        fontSize: 12,
     },
     contentSection: {
         marginTop: 10,
@@ -168,5 +267,47 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         marginRight: 10,
         backgroundColor: '#f0f0f0',
+    },
+
+    // Full-screen modals
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.92)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalClose: {
+        position: 'absolute',
+        top: 50,
+        right: 20,
+        zIndex: 10,
+    },
+    modalImage: {
+        width: SCREEN_WIDTH - 40,
+        height: SCREEN_HEIGHT * 0.7,
+    },
+    videoModalContent: {
+        alignItems: 'center',
+        gap: 16,
+    },
+    videoModalText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    videoPlayButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 24,
+        marginTop: 8,
+    },
+    videoPlayText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 16,
     },
 });
