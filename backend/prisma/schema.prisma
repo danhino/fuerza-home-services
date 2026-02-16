@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  TECHNICIAN
+  ADMIN
+  BOTH
+}
+
+enum Trade {
+  PLUMBER
+  ELECTRICIAN
+  CLEANING
+  POOL
+}
+
+enum JobStatus {
+  DRAFT
+  REQUESTED
+  MATCHED
+  EN_ROUTE
+  ARRIVED
+  DIAGNOSING
+  WORKING
+  AWAITING_ESTIMATE_APPROVAL
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+model User {
+  id                String             @id @default(uuid())
+  phone             String             @unique
+  email             String?            @unique
+  password          String // To be hashed
+  name              String
+  role              Role               @default(CUSTOMER)
+  photoUrl          String?
+  rating            Float              @default(5.0)
+  createdAt         DateTime           @default(now())
+  preferredLanguage String             @default("en") // "en" | "es"
+  updatedAt         DateTime           @updatedAt
+  technicianProfile TechnicianProfile?
+  customerProfile   CustomerProfile?
+}
+
+model TechnicianProfile {
+  id                String   @id @default(uuid())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String   @unique
+  trades            Trade[]
+  isOnline          Boolean  @default(false)
+  currentLat        Float?
+  currentLng        Float?
+  serviceRadius     Int      @default(10) // in km or miles
+  completedJobs     Int      @default(0)
+  availabilityHours String?
+  jobs              Job[]
+}
+
+model CustomerProfile {
+  id             String  @id @default(uuid())
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String  @unique
+  savedAddresses Json? // Array of address objects
+  jobs           Job[]
+}
+
+model Job {
+  id                     String                  @id @default(uuid())
+  customerId             String
+  customer               CustomerProfile         @relation(fields: [customerId], references: [userId])
+  technicianId           String?
+  technician             TechnicianProfile?      @relation(fields: [technicianId], references: [userId])
+  trade                  Trade
+  description            String
+  photos                 String[]
+  address                String
+  locationLat            Float
+  locationLng            Float
+  status                 JobStatus               @default(DRAFT)
+  estimate               Estimate?
+  chatMessages           ChatMessage[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  payment                Payment?
+}
+
+model Estimate {
+  id              String                  @id @default(uuid())
+  jobId           String                  @unique
+  job             Job                     @relation(fields: [jobId], references: [id])
+  originalAmount  Float
+  currentAmount   Float
+  currency        String                  @default("USD")
+  changeRequests  EstimateChangeRequest[]
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+}
+
+model EstimateChangeRequest {
+  id          String   @id @default(uuid())
+  estimateId  String
+  estimate    Estimate @relation(fields: [estimateId], references: [id])
+  proposedBy  String   // Technician User ID
+  oldAmount   Float
+  newAmount   Float
+  reason      String
+  status      String   @default("PENDING") // PENDING, APPROVED, DECLINED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id])
+  senderId  String
+  message   String
+  timestamp DateTime @default(now())
+}
+
+model Payment {
+  id        String        @id @default(uuid())
+  jobId     String        @unique
+  job       Job           @relation(fields: [jobId], references: [id])
+  amount    Float
+  status    PaymentStatus @default(PENDING)
+  method    String?
+  receiptUrl String?
+  createdAt DateTime      @default(now())
+}
