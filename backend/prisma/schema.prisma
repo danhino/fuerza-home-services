@@ -88,6 +88,8 @@ model Job {
   description            String
   issueTag               String?
   videoUrl               String?
+  triageData             Json?
+  triageSeverity         String?
   photos                 String[]
   address                String
   locationLat            Float

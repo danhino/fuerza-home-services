@@ -63,6 +63,22 @@ const es = {
     'request.videoTooLong': 'El video debe durar menos de 60 segundos',
     'request.videoAvailable': '🎥 Video disponible',
 
+    // ── Triage Results ───────────────────────────────
+    'triage.title': 'Estimación Preliminar',
+    'triage.disclaimer': 'Esta es una estimación preliminar — el precio final puede variar según el diagnóstico.',
+    'triage.likelyIssue': 'Problema Probable',
+    'triage.severity': 'Prioridad',
+    'triage.severityUrgent': 'Mismo Día / Urgente',
+    'triage.severityScheduled': 'Programado',
+    'triage.timeEstimate': 'Tiempo Estimado',
+    'triage.priceRange': 'Precio Estimado',
+    'triage.minutes': 'min',
+    'triage.edit': 'Editar Solicitud',
+    'triage.continue': 'Continuar y Enviar',
+    'triage.loading': 'Analizando tu solicitud...',
+    'triage.fallback': 'No se pudo generar un estimado detallado. Se muestran rangos generales.',
+    'triage.confidence': 'confianza',
+
     // ── Issue Tiles — Plomería ───────────────────────
     'issue.plumber.leakUnderSink': 'Fuga debajo del fregadero',
     'issue.plumber.replaceToilet': 'Reemplazar inodoro',

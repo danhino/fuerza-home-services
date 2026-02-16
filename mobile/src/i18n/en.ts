@@ -63,6 +63,22 @@ const en = {
     'request.videoTooLong': 'Video must be under 60 seconds',
     'request.videoAvailable': '🎥 Video available',
 
+    // ── Triage Results ───────────────────────────────
+    'triage.title': 'Preliminary Estimate',
+    'triage.disclaimer': 'This is a preliminary estimate — final price may vary based on diagnosis.',
+    'triage.likelyIssue': 'Likely Issue',
+    'triage.severity': 'Priority',
+    'triage.severityUrgent': 'Same-Day / Urgent',
+    'triage.severityScheduled': 'Scheduled',
+    'triage.timeEstimate': 'Estimated Time',
+    'triage.priceRange': 'Estimated Price',
+    'triage.minutes': 'min',
+    'triage.edit': 'Edit Request',
+    'triage.continue': 'Continue & Submit',
+    'triage.loading': 'Analyzing your request...',
+    'triage.fallback': 'Could not generate a detailed estimate. General ranges shown.',
+    'triage.confidence': 'confidence',
+
     // ── Issue Tiles — Plumbing ───────────────────────
     'issue.plumber.leakUnderSink': 'Leak under sink',
     'issue.plumber.replaceToilet': 'Replace toilet',

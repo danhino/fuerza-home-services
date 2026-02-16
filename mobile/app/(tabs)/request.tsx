@@ -163,7 +163,7 @@ export default function RequestScreen() {
             const lat = location?.lat || 29.7604;
             const lng = location?.lng || -95.3698;
 
-            // For MVP, send photos as base64 in JSON body
+            // Convert photos to base64
             const photoData: string[] = [];
             for (const uri of photos) {
                 const response = await fetch(uri);
@@ -176,7 +176,7 @@ export default function RequestScreen() {
                 photoData.push(base64);
             }
 
-            // Convert video to base64 using the same strategy as photos
+            // Convert video to base64
             let videoData: string | undefined;
             if (videoUri) {
                 const vResp = await fetch(videoUri);
@@ -188,19 +188,20 @@ export default function RequestScreen() {
                 });
             }
 
-            await api.post('/jobs', {
-                trade: selectedTrade,
-                description,
-                address,
-                lat,
-                lng,
-                photos: photoData,
-                issueTag: selectedIssueTag || undefined,
-                videoUrl: videoData || undefined,
+            // Navigate to triage screen with all data
+            router.push({
+                pathname: '/triage',
+                params: {
+                    trade: selectedTrade,
+                    description,
+                    address,
+                    lat: lat.toString(),
+                    lng: lng.toString(),
+                    issueTag: selectedIssueTag || '',
+                    photoData: JSON.stringify(photoData),
+                    videoData: videoData || '',
+                },
             });
-
-            Alert.alert(t('request.success'), t('request.successBody'));
-            router.back();
         } catch (e) {
             Alert.alert(t('home.error'), t('request.failed'));
         } finally {
