@@ -147,6 +147,10 @@ const en = {
     'profile.role': 'Role',
     'profile.logout': 'Logout',
     'profile.language': 'Language',
+    'profile.theme': 'Theme',
+    'profile.theme.system': 'System',
+    'profile.theme.light': 'Light',
+    'profile.theme.dark': 'Dark',
 
     // ── Tabs ─────────────────────────────────────────
     'tabs.home': 'Home',

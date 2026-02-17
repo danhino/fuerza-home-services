@@ -6,12 +6,15 @@
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '../constants/Colors';
+import { useThemeStore } from '../store/useThemeStore';
 
 export function useThemeColor(
     props: { light?: string; dark?: string },
     colorName: keyof typeof Colors.light & keyof typeof Colors.dark
 ) {
-    const theme = useColorScheme() ?? 'light';
+    const systemTheme = useColorScheme() ?? 'light';
+    const preference = useThemeStore((s) => s.preference);
+    const theme = preference === 'system' ? systemTheme : preference;
     const colorFromProps = props[theme];
 
     if (colorFromProps) {

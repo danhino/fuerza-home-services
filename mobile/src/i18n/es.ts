@@ -148,6 +148,10 @@ const es = {
     'profile.role': 'Rol',
     'profile.logout': 'Cerrar sesión',
     'profile.language': 'Idioma',
+    'profile.theme': 'Tema',
+    'profile.theme.system': 'Sistema',
+    'profile.theme.light': 'Claro',
+    'profile.theme.dark': 'Oscuro',
 
     // ── Tabs ─────────────────────────────────────────
     'tabs.home': 'Inicio',

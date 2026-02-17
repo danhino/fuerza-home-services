@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { View, ActivityIndicator } from 'react-native';
 import { useLanguageStore } from '../src/i18n';
+import { useThemeStore } from '../src/store/useThemeStore';
 
 export default function RootLayout() {
     const { isAuthenticated } = useAuthStore();
@@ -13,6 +14,7 @@ export default function RootLayout() {
 
     useEffect(() => {
         useLanguageStore.getState().loadLanguage();
+        useThemeStore.getState().loadPreference();
         setIsMounted(true);
     }, []);
 
