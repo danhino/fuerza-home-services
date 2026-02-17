@@ -67,6 +67,8 @@ export default function EstimateScreen() {
                 videoUrl: pending.videoData || undefined,
                 holdRef,
                 holdAmountCents,
+                estimateLow: totalLow,
+                estimateHigh: totalHigh,
             });
             clearAll();
             Alert.alert(t('request.success'), t('request.successBody'));

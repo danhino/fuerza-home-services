@@ -116,6 +116,8 @@ model Job {
   holdRef                String?
   holdAmount             Int?
   paymentHoldStatus      PaymentStatus           @default(NONE)
+  estimateLow            Float?
+  estimateHigh           Float?
 }
 
 model Estimate {

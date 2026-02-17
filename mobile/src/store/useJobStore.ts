@@ -20,6 +20,9 @@ export interface Job {
     // Included in socket payloads
     customerPreferredLanguage?: string;
     customerName?: string;
+    // Estimate range for technician earnings display
+    estimateLow?: number;
+    estimateHigh?: number;
 }
 
 interface JobState {

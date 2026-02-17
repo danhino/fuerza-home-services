@@ -118,6 +118,30 @@ export default function JobsScreen() {
                     )}
                 </View>
 
+                {/* Earnings breakdown for technicians — shown before accept */}
+                {isTechnician && isRequested && (item.estimateLow != null && item.estimateHigh != null) && (() => {
+                    const PLATFORM_FEE = 2.99;
+                    const earningsLow = Math.max(0, item.estimateLow! - PLATFORM_FEE);
+                    const earningsHigh = Math.max(0, item.estimateHigh! - PLATFORM_FEE);
+                    return (
+                        <View style={styles.earningsBox}>
+                            <Text style={styles.earningsTitle}>{t('jobs.earnings.title')}</Text>
+                            <View style={styles.earningsRow}>
+                                <Text style={styles.earningsLabel}>{t('jobs.earnings.customerEstimate')}</Text>
+                                <Text style={styles.earningsValue}>${item.estimateLow!.toFixed(2)} – ${item.estimateHigh!.toFixed(2)}</Text>
+                            </View>
+                            <View style={styles.earningsRow}>
+                                <Text style={styles.earningsLabel}>{t('jobs.earnings.platformFee')}</Text>
+                                <Text style={[styles.earningsValue, { color: '#FF3B30' }]}>-${PLATFORM_FEE.toFixed(2)}</Text>
+                            </View>
+                            <View style={[styles.earningsRow, styles.earningsTotalRow]}>
+                                <Text style={styles.earningsTotalLabel}>{t('jobs.earnings.estimated')}</Text>
+                                <Text style={styles.earningsTotalValue}>${earningsLow.toFixed(2)} – ${earningsHigh.toFixed(2)}</Text>
+                            </View>
+                        </View>
+                    );
+                })()}
+
                 {isTechnician && isRequested && (
                     <TouchableOpacity style={styles.acceptButton} onPress={() => acceptJob(item.id)}>
                         <Text style={styles.buttonText}>{t('jobs.acceptJob')}</Text>
@@ -310,5 +334,52 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: '700',
         fontSize: 16,
+    },
+
+    // Technician earnings breakdown
+    earningsBox: {
+        marginTop: 12,
+        backgroundColor: '#E8F8EE',
+        borderRadius: 8,
+        padding: 12,
+        borderLeftWidth: 3,
+        borderLeftColor: '#34C759',
+    },
+    earningsTitle: {
+        fontWeight: '700',
+        fontSize: 14,
+        color: '#1B5E20',
+        marginBottom: 8,
+    },
+    earningsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 4,
+    },
+    earningsLabel: {
+        fontSize: 13,
+        color: '#555',
+    },
+    earningsValue: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#333',
+    },
+    earningsTotalRow: {
+        borderTopWidth: 1,
+        borderTopColor: '#C8E6C9',
+        paddingTop: 6,
+        marginTop: 4,
+        marginBottom: 0,
+    },
+    earningsTotalLabel: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#1B5E20',
+    },
+    earningsTotalValue: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#34C759',
     },
 });

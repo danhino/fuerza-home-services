@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 export const createJob = async (req: AuthRequest, res: Response) => {
     try {
         const customerId = req.user.userId;
-        const { trade, description, address, lat, lng, photos, issueTag, videoUrl, holdRef, holdAmountCents } = req.body;
+        const { trade, description, address, lat, lng, photos, issueTag, videoUrl, holdRef, holdAmountCents, estimateLow, estimateHigh } = req.body;
 
         const job = await prisma.job.create({
             data: {
@@ -28,6 +28,8 @@ export const createJob = async (req: AuthRequest, res: Response) => {
                     holdAmount: holdAmountCents || null,
                     paymentHoldStatus: 'HELD',
                 } : {}),
+                estimateLow: estimateLow || null,
+                estimateHigh: estimateHigh || null,
             },
         });
 
