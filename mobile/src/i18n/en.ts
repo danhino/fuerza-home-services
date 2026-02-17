@@ -92,6 +92,8 @@ const en = {
     'estimate.disclaimer': 'This is an estimate only. Final cost may vary based on on-site diagnosis. No payment is charged now.',
     'estimate.agree': 'Agree & Request Now',
     'estimate.noData': 'No estimate data available. Please go back and try again.',
+    'estimate.holdFailed': 'Payment Hold Failed',
+    'estimate.holdRetry': 'We could not authorize your payment method. Please check your card details and try again.',
 
     // ── Issue Tiles — Plumbing ───────────────────────
     'issue.plumber.leakUnderSink': 'Leak under sink',

@@ -32,6 +32,7 @@ app.get('/health', (_req, res) => {
 
 import adminRoutes from './routes/admin.routes';
 import triageRoutes from './routes/triage.routes';
+import paymentRoutes from './routes/payment.routes';
 
 // ... (existing code)
 
@@ -40,6 +41,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/triage', triageRoutes);
+app.use('/api/payments', paymentRoutes);
 
 app.get('/', (req, res) => {
   res.send('Fuerza Home Services API is running');

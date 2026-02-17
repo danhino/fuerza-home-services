@@ -39,6 +39,23 @@ export default function EstimateScreen() {
         if (!pending) return;
         setSubmitting(true);
         try {
+            // 1. Payment hold first
+            const holdAmountCents = Math.round(totalHigh * 100);
+            const holdRes = await api.post('/payments/hold', { amountCents: holdAmountCents });
+
+            if (!holdRes.data?.success) {
+                Alert.alert(
+                    t('estimate.holdFailed'),
+                    t('estimate.holdRetry'),
+                    [{ text: 'OK' }]
+                );
+                setSubmitting(false);
+                return;
+            }
+
+            const holdRef = holdRes.data.holdRef;
+
+            // 2. Create job only after hold succeeds
             await api.post('/jobs', {
                 trade: pending.trade,
                 description: pending.description,
@@ -48,12 +65,16 @@ export default function EstimateScreen() {
                 photos: pending.photoData,
                 issueTag: pending.issueTag || undefined,
                 videoUrl: pending.videoData || undefined,
+                holdRef,
+                holdAmountCents,
             });
             clearAll();
             Alert.alert(t('request.success'), t('request.successBody'));
             router.replace('/(tabs)/jobs');
-        } catch (e) {
-            Alert.alert(t('home.error'), t('request.failed'));
+        } catch (e: any) {
+            // Distinguish hold failure from job creation failure
+            const msg = e?.response?.data?.error || t('request.failed');
+            Alert.alert(t('home.error'), msg);
         } finally {
             setSubmitting(false);
         }

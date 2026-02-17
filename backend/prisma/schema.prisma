@@ -35,9 +35,19 @@ enum JobStatus {
 }
 
 enum PaymentStatus {
+  NONE
   PENDING
+  HOLD_PENDING
+  HELD
+  CAPTURED
   PAID
   FAILED
+}
+
+enum PaymentProvider {
+  STRIPE
+  SQUARE
+  NONE
 }
 
 model User {
@@ -102,6 +112,10 @@ model Job {
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   payment                Payment?
+  paymentProvider        PaymentProvider         @default(NONE)
+  holdRef                String?
+  holdAmount             Int?
+  paymentHoldStatus      PaymentStatus           @default(NONE)
 }
 
 model Estimate {
@@ -143,7 +157,7 @@ model Payment {
   jobId     String        @unique
   job       Job           @relation(fields: [jobId], references: [id])
   amount    Float
-  status    PaymentStatus @default(PENDING)
+  status    PaymentStatus @default(NONE)
   method    String?
   receiptUrl String?
   createdAt DateTime      @default(now())

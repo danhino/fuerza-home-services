@@ -92,6 +92,8 @@ const es = {
     'estimate.disclaimer': 'Esto es solo un estimado. El costo final puede variar según el diagnóstico del técnico en sitio. No se cobra ningún pago ahora.',
     'estimate.agree': 'Aceptar y Solicitar Ahora',
     'estimate.noData': 'No hay datos de estimado disponibles. Regresa e intenta de nuevo.',
+    'estimate.holdFailed': 'Error en la Retención de Pago',
+    'estimate.holdRetry': 'No pudimos autorizar tu método de pago. Revisa los datos de tu tarjeta e intenta de nuevo.',
 
 
     // ── Issue Tiles — Plomería ───────────────────────
