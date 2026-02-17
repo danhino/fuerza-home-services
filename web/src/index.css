@@ -131,7 +131,7 @@ body {
 }
 
 .header-content {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
@@ -171,7 +171,7 @@ body {
 .dashboard-main {
   flex: 1;
   padding: 2rem;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
 }
@@ -210,7 +210,7 @@ body {
   background-color: var(--bg-secondary);
   border-radius: 12px;
   border: 1px solid var(--border-color);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .user-table {
@@ -221,14 +221,14 @@ body {
 .user-table th {
   background-color: #27272a;
   text-align: left;
-  padding: 1rem 1.5rem;
+  padding: 0.75rem 1rem;
   font-size: 0.875rem;
   color: var(--text-secondary);
   font-weight: 600;
 }
 
 .user-table td {
-  padding: 1rem 1.5rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border-color);
   color: var(--text-primary);
 }
