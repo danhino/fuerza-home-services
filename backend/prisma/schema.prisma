@@ -46,6 +46,8 @@ model User {
   email             String?            @unique
   password          String // To be hashed
   name              String
+  firstName         String             @default("")
+  lastName          String             @default("")
   role              Role               @default(CUSTOMER)
   photoUrl          String?
   rating            Float              @default(5.0)

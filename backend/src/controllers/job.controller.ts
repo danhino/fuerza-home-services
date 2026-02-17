@@ -28,7 +28,7 @@ export const createJob = async (req: AuthRequest, res: Response) => {
         // Fetch customer's preferred language to include in socket payload
         const customer = await prisma.user.findUnique({
             where: { id: customerId },
-            select: { preferredLanguage: true, name: true },
+            select: { preferredLanguage: true, name: true, firstName: true },
         });
 
         // Notify all technicians with customer language info
@@ -52,7 +52,7 @@ export const getOpenJobs = async (req: AuthRequest, res: Response) => {
                 status: JobStatus.REQUESTED,
                 technicianId: null,
             },
-            include: { customer: { include: { user: { select: { name: true, preferredLanguage: true } } } } },
+            include: { customer: { include: { user: { select: { name: true, firstName: true, lastName: true, preferredLanguage: true } } } } },
         });
         res.json(jobs);
     } catch (error) {

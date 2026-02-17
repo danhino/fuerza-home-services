@@ -11,6 +11,8 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
             select: {
                 id: true,
                 name: true,
+                firstName: true,
+                lastName: true,
                 email: true,
                 phone: true,
                 role: true,
@@ -40,9 +42,16 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
 export const updateUser = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const { name, email, phone, role, password } = req.body;
+        const { name, firstName, lastName, email, phone, role, password } = req.body;
 
-        const data: any = { name, email, phone, role };
+        const data: any = { email, phone, role };
+        if (firstName !== undefined) data.firstName = firstName;
+        if (lastName !== undefined) data.lastName = lastName;
+        if (name !== undefined) data.name = name;
+        // Sync name from first/last if provided
+        if (firstName !== undefined || lastName !== undefined) {
+            data.name = `${firstName || ''} ${lastName || ''}`.trim();
+        }
         if (password) {
             data.password = await hashPassword(password);
         }
@@ -50,7 +59,7 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         const user = await prisma.user.update({
             where: { id: id as string },
             data,
-            select: { id: true, name: true, email: true, role: true }
+            select: { id: true, name: true, firstName: true, lastName: true, email: true, role: true }
         });
         res.json(user);
     } catch (error) {

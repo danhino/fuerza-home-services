@@ -3,6 +3,7 @@ import {
     View, Text, TextInput, TouchableOpacity, StyleSheet, Alert,
     ScrollView, Image, ActivityIndicator, KeyboardAvoidingView, Platform, Linking
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -11,6 +12,7 @@ import { useRouter } from 'expo-router';
 import api from '../../src/services/api';
 import { useThemeColor } from '../../src/hooks/useThemeColor';
 import { t, useLanguageStore } from '../../src/i18n';
+import { useTriageStore } from '../../src/store/useTriageStore';
 
 type Trade = 'PLUMBER' | 'ELECTRICIAN' | 'POOL' | 'CLEANING';
 
@@ -77,6 +79,11 @@ export default function RequestScreen() {
     const [submitting, setSubmitting] = useState(false);
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
 
+    // Address autocomplete state
+    const [addressSuggestions, setAddressSuggestions] = useState<{ display_name: string; lat: string; lon: string }[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
     const backgroundColor = useThemeColor({}, 'background');
     const textColor = useThemeColor({}, 'text');
     const borderColor = useThemeColor({}, 'border');
@@ -91,6 +98,37 @@ export default function RequestScreen() {
             }
         })();
     }, []);
+
+    const searchAddress = (query: string) => {
+        if (searchTimer) clearTimeout(searchTimer);
+        setAddress(query);
+        if (query.length < 3) {
+            setAddressSuggestions([]);
+            setShowSuggestions(false);
+            return;
+        }
+        const timer = setTimeout(async () => {
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=us&addressdetails=0`,
+                    { headers: { 'User-Agent': 'FuerzaHomeServices/1.0' } }
+                );
+                const data = await response.json();
+                setAddressSuggestions(data);
+                setShowSuggestions(data.length > 0);
+            } catch (e) {
+                setShowSuggestions(false);
+            }
+        }, 400);
+        setSearchTimer(timer);
+    };
+
+    const selectSuggestion = (item: { display_name: string; lat: string; lon: string }) => {
+        setAddress(item.display_name);
+        setLocation({ lat: parseFloat(item.lat), lng: parseFloat(item.lon) });
+        setShowSuggestions(false);
+        setAddressSuggestions([]);
+    };
 
     const pickAndCompressPhotos = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -188,20 +226,18 @@ export default function RequestScreen() {
                 });
             }
 
-            // Navigate to triage screen with all data
-            router.push({
-                pathname: '/triage',
-                params: {
-                    trade: selectedTrade,
-                    description,
-                    address,
-                    lat: lat.toString(),
-                    lng: lng.toString(),
-                    issueTag: selectedIssueTag || '',
-                    photoData: JSON.stringify(photoData),
-                    videoData: videoData || '',
-                },
+            // Store data and navigate to triage screen
+            useTriageStore.getState().setPending({
+                trade: selectedTrade,
+                description,
+                address,
+                lat,
+                lng,
+                issueTag: selectedIssueTag || undefined,
+                photoData,
+                videoData,
             });
+            router.push('/triage');
         } catch (e) {
             Alert.alert(t('home.error'), t('request.failed'));
         } finally {
@@ -210,168 +246,189 @@ export default function RequestScreen() {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={{ flex: 1, backgroundColor }}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-            <ScrollView contentContainerStyle={styles.scroll}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()}>
-                        <Ionicons name="arrow-back" size={24} color={textColor} />
-                    </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: textColor }]}>{t('request.title')}</Text>
-                    <View style={{ width: 24 }} />
-                </View>
-
-                {/* Trade Picker */}
-                <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.selectTrade')}</Text>
-                <View style={styles.tradeRow}>
-                    {TRADES.map((trade) => {
-                        const isSelected = selectedTrade === trade.key;
-                        return (
-                            <TouchableOpacity
-                                key={trade.key}
-                                style={[
-                                    styles.tradeChip,
-                                    { borderColor: trade.color },
-                                    isSelected && { backgroundColor: trade.color },
-                                ]}
-                                onPress={() => { setSelectedTrade(trade.key); setSelectedIssueTag(null); }}
-                            >
-                                <Ionicons
-                                    name={trade.icon as any}
-                                    size={18}
-                                    color={isSelected ? '#fff' : trade.color}
-                                />
-                                <Text style={[
-                                    styles.tradeChipText,
-                                    { color: isSelected ? '#fff' : trade.color },
-                                ]}>
-                                    {t(trade.i18nKey)}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-
-                {/* Issue Tiles */}
-                <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.issueType')}</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.issueTileScroll}>
-                    {ISSUE_TILES[selectedTrade].map((tile) => {
-                        const isSelected = selectedIssueTag === tile.tag;
-                        const tradeColor = TRADES.find((tr) => tr.key === selectedTrade)?.color || '#007AFF';
-                        return (
-                            <TouchableOpacity
-                                key={tile.tag}
-                                style={[
-                                    styles.issueTile,
-                                    { borderColor: tradeColor },
-                                    isSelected && { backgroundColor: tradeColor },
-                                ]}
-                                onPress={() => {
-                                    if (isSelected) {
-                                        setSelectedIssueTag(null);
-                                    } else {
-                                        setSelectedIssueTag(tile.tag);
-                                        if (!description.trim()) {
-                                            setDescription(tile.suggestedDescription);
-                                        }
-                                    }
-                                }}
-                            >
-                                <Text style={[
-                                    styles.issueTileText,
-                                    { color: isSelected ? '#fff' : tradeColor },
-                                ]}>
-                                    {t(tile.i18nKey)}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </ScrollView>
-
-                {/* Address */}
-                <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.address')}</Text>
-                <TextInput
-                    style={[styles.input, { borderColor, color: textColor, backgroundColor: cardColor }]}
-                    placeholder={t('request.addressPlaceholder')}
-                    placeholderTextColor="#8e8e93"
-                    value={address}
-                    onChangeText={setAddress}
-                />
-
-                {/* Description */}
-                <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.description')}</Text>
-                <TextInput
-                    style={[styles.input, styles.textArea, { borderColor, color: textColor, backgroundColor: cardColor }]}
-                    placeholder={t('request.descriptionPlaceholder')}
-                    placeholderTextColor="#8e8e93"
-                    value={description}
-                    onChangeText={setDescription}
-                    multiline
-                    numberOfLines={4}
-                    textAlignVertical="top"
-                />
-
-                {/* Photos */}
-                <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.photos')}</Text>
-                <View style={styles.photoRow}>
-                    {photos.map((uri, i) => (
-                        <View key={i} style={styles.photoThumb}>
-                            <Image source={{ uri }} style={styles.photoImage} />
-                            <TouchableOpacity style={styles.photoRemove} onPress={() => removePhoto(i)}>
-                                <Ionicons name="close-circle" size={22} color="#FF3B30" />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
-                    {photos.length < 5 && (
-                        <TouchableOpacity style={[styles.addPhotoBtn, { borderColor }]} onPress={pickAndCompressPhotos}>
-                            <Ionicons name="camera" size={28} color="#8e8e93" />
-                            <Text style={styles.addPhotoText}>{t('request.addPhotos')}</Text>
+        <SafeAreaView style={{ flex: 1, backgroundColor }}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                <ScrollView contentContainerStyle={styles.scroll}>
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <TouchableOpacity onPress={() => router.back()}>
+                            <Ionicons name="arrow-back" size={24} color={textColor} />
                         </TouchableOpacity>
-                    )}
-                </View>
-
-                {/* Video */}
-                <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.video')}</Text>
-                {videoUri ? (
-                    <View style={styles.videoRow}>
-                        <View style={styles.videoAttached}>
-                            <Ionicons name="videocam" size={20} color="#007AFF" />
-                            <Text style={styles.videoAttachedText}>{t('request.videoAdded')}</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => setVideoUri(null)}>
-                            <Ionicons name="close-circle" size={24} color="#FF3B30" />
-                        </TouchableOpacity>
+                        <Text style={[styles.headerTitle, { color: textColor }]}>{t('request.title')}</Text>
+                        <View style={{ width: 24 }} />
                     </View>
-                ) : (
-                    <TouchableOpacity style={[styles.addVideoBtn, { borderColor }]} onPress={pickVideo}>
-                        <Ionicons name="videocam-outline" size={28} color="#8e8e93" />
-                        <Text style={styles.addVideoText}>{t('request.addVideo')}</Text>
-                    </TouchableOpacity>
-                )}
 
-                {/* Submit */}
-                <TouchableOpacity
-                    style={[styles.submitButton, submitting && { opacity: 0.6 }]}
-                    onPress={handleSubmit}
-                    disabled={submitting}
-                >
-                    {submitting ? (
-                        <ActivityIndicator color="#fff" />
+                    {/* Trade Picker */}
+                    <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.selectTrade')}</Text>
+                    <View style={styles.tradeRow}>
+                        {TRADES.map((trade) => {
+                            const isSelected = selectedTrade === trade.key;
+                            return (
+                                <TouchableOpacity
+                                    key={trade.key}
+                                    style={[
+                                        styles.tradeChip,
+                                        { borderColor: trade.color },
+                                        isSelected && { backgroundColor: trade.color },
+                                    ]}
+                                    onPress={() => { setSelectedTrade(trade.key); setSelectedIssueTag(null); }}
+                                >
+                                    <Ionicons
+                                        name={trade.icon as any}
+                                        size={18}
+                                        color={isSelected ? '#fff' : trade.color}
+                                    />
+                                    <Text style={[
+                                        styles.tradeChipText,
+                                        { color: isSelected ? '#fff' : trade.color },
+                                    ]}>
+                                        {t(trade.i18nKey)}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+
+                    {/* Issue Tiles */}
+                    <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.issueType')}</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.issueTileScroll}>
+                        {ISSUE_TILES[selectedTrade].map((tile) => {
+                            const isSelected = selectedIssueTag === tile.tag;
+                            const tradeColor = TRADES.find((tr) => tr.key === selectedTrade)?.color || '#007AFF';
+                            return (
+                                <TouchableOpacity
+                                    key={tile.tag}
+                                    style={[
+                                        styles.issueTile,
+                                        { borderColor: tradeColor },
+                                        isSelected && { backgroundColor: tradeColor },
+                                    ]}
+                                    onPress={() => {
+                                        if (isSelected) {
+                                            setSelectedIssueTag(null);
+                                        } else {
+                                            setSelectedIssueTag(tile.tag);
+                                            if (!description.trim()) {
+                                                setDescription(tile.suggestedDescription);
+                                            }
+                                        }
+                                    }}
+                                >
+                                    <Text style={[
+                                        styles.issueTileText,
+                                        { color: isSelected ? '#fff' : tradeColor },
+                                    ]}>
+                                        {t(tile.i18nKey)}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+
+                    {/* Address */}
+                    <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.address')}</Text>
+                    <View style={{ zIndex: 10 }}>
+                        <TextInput
+                            style={[styles.input, { borderColor, color: textColor, backgroundColor: cardColor }]}
+                            placeholder={t('request.addressPlaceholder')}
+                            placeholderTextColor="#8e8e93"
+                            value={address}
+                            onChangeText={searchAddress}
+                            onFocus={() => { if (addressSuggestions.length > 0) setShowSuggestions(true); }}
+                        />
+                        {showSuggestions && addressSuggestions.length > 0 && (
+                            <View style={[styles.suggestionsContainer, { backgroundColor: cardColor, borderColor }]}>
+                                {addressSuggestions.map((item, idx) => (
+                                    <TouchableOpacity
+                                        key={idx}
+                                        style={[styles.suggestionItem, idx < addressSuggestions.length - 1 && { borderBottomWidth: 1, borderBottomColor: borderColor }]}
+                                        onPress={() => selectSuggestion(item)}
+                                    >
+                                        <Ionicons name="location-outline" size={16} color="#8e8e93" />
+                                        <Text style={[styles.suggestionText, { color: textColor }]} numberOfLines={2}>
+                                            {item.display_name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Description */}
+                    <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.description')}</Text>
+                    <TextInput
+                        style={[styles.input, styles.textArea, { borderColor, color: textColor, backgroundColor: cardColor }]}
+                        placeholder={t('request.descriptionPlaceholder')}
+                        placeholderTextColor="#8e8e93"
+                        value={description}
+                        onChangeText={setDescription}
+                        multiline
+                        numberOfLines={4}
+                        textAlignVertical="top"
+                    />
+
+                    {/* Photos */}
+                    <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.photos')}</Text>
+                    <View style={styles.photoRow}>
+                        {photos.map((uri, i) => (
+                            <View key={i} style={styles.photoThumb}>
+                                <Image source={{ uri }} style={styles.photoImage} />
+                                <TouchableOpacity style={styles.photoRemove} onPress={() => removePhoto(i)}>
+                                    <Ionicons name="close-circle" size={22} color="#FF3B30" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                        {photos.length < 5 && (
+                            <TouchableOpacity style={[styles.addPhotoBtn, { borderColor }]} onPress={pickAndCompressPhotos}>
+                                <Ionicons name="camera" size={28} color="#8e8e93" />
+                                <Text style={styles.addPhotoText}>{t('request.addPhotos')}</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {/* Video */}
+                    <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.video')}</Text>
+                    {videoUri ? (
+                        <View style={styles.videoRow}>
+                            <View style={styles.videoAttached}>
+                                <Ionicons name="videocam" size={20} color="#007AFF" />
+                                <Text style={styles.videoAttachedText}>{t('request.videoAdded')}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setVideoUri(null)}>
+                                <Ionicons name="close-circle" size={24} color="#FF3B30" />
+                            </TouchableOpacity>
+                        </View>
                     ) : (
-                        <Text style={styles.submitText}>{t('request.submit')}</Text>
+                        <TouchableOpacity style={[styles.addVideoBtn, { borderColor }]} onPress={pickVideo}>
+                            <Ionicons name="videocam-outline" size={28} color="#8e8e93" />
+                            <Text style={styles.addVideoText}>{t('request.addVideo')}</Text>
+                        </TouchableOpacity>
                     )}
-                </TouchableOpacity>
-            </ScrollView>
-        </KeyboardAvoidingView>
+
+                    {/* Submit */}
+                    <TouchableOpacity
+                        style={[styles.submitButton, submitting && { opacity: 0.6 }]}
+                        onPress={handleSubmit}
+                        disabled={submitting}
+                    >
+                        {submitting ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text style={styles.submitText}>{t('request.submit')}</Text>
+                        )}
+                    </TouchableOpacity>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     scroll: { padding: 20, paddingBottom: 40 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, marginTop: 40 },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
     headerTitle: { fontSize: 20, fontWeight: 'bold' },
     sectionLabel: { fontSize: 14, fontWeight: '600', marginBottom: 8, marginTop: 16, textTransform: 'uppercase', letterSpacing: 0.5 },
 
@@ -402,6 +459,28 @@ const styles = StyleSheet.create({
     // Inputs
     input: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16 },
     textArea: { minHeight: 100 },
+
+    // Address suggestions
+    suggestionsContainer: {
+        borderWidth: 1,
+        borderTopWidth: 0,
+        borderBottomLeftRadius: 12,
+        borderBottomRightRadius: 12,
+        overflow: 'hidden',
+        marginTop: -4,
+    },
+    suggestionItem: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        gap: 8,
+    },
+    suggestionText: {
+        fontSize: 14,
+        flex: 1,
+        lineHeight: 19,
+    },
 
     // Photos
     photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

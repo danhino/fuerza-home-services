@@ -7,6 +7,8 @@ import { LogOut, Trash, Pencil, UserPlus, Users as UsersIcon, X } from 'lucide-r
 interface User {
     id: string;
     name: string;
+    firstName: string;
+    lastName: string;
     email: string | null;
     phone: string;
     role: string;
@@ -14,14 +16,16 @@ interface User {
 }
 
 interface EditForm {
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
     phone: string;
     role: string;
 }
 
 interface AddForm {
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
     phone: string;
     password: string;
@@ -32,9 +36,9 @@ export default function Dashboard() {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [editForm, setEditForm] = useState<EditForm>({ name: '', email: '', phone: '', role: 'CUSTOMER' });
+    const [editForm, setEditForm] = useState<EditForm>({ firstName: '', lastName: '', email: '', phone: '', role: 'CUSTOMER' });
     const [showAddModal, setShowAddModal] = useState(false);
-    const [addForm, setAddForm] = useState<AddForm>({ name: '', email: '', phone: '', password: '', role: 'CUSTOMER' });
+    const [addForm, setAddForm] = useState<AddForm>({ firstName: '', lastName: '', email: '', phone: '', password: '', role: 'CUSTOMER' });
     const [error, setError] = useState('');
     const logout = useAuthStore((state) => state.logout);
     const navigate = useNavigate();
@@ -69,7 +73,8 @@ export default function Dashboard() {
     const openEditModal = (user: User) => {
         setEditingUser(user);
         setEditForm({
-            name: user.name,
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
             email: user.email || '',
             phone: user.phone,
             role: user.role,
@@ -90,7 +95,7 @@ export default function Dashboard() {
 
     // ── ADD ─────────────────────────────────────────────────
     const openAddModal = () => {
-        setAddForm({ name: '', email: '', phone: '', password: '', role: 'CUSTOMER' });
+        setAddForm({ firstName: '', lastName: '', email: '', phone: '', password: '', role: 'CUSTOMER' });
         setShowAddModal(true);
         setError('');
     };
@@ -102,7 +107,9 @@ export default function Dashboard() {
         }
         try {
             await api.post('/auth/register', {
-                name: addForm.name || addForm.email.split('@')[0],
+                firstName: addForm.firstName,
+                lastName: addForm.lastName,
+                name: `${addForm.firstName} ${addForm.lastName}`.trim() || addForm.email.split('@')[0],
                 email: addForm.email,
                 phone: addForm.phone,
                 password: addForm.password,
@@ -160,7 +167,8 @@ export default function Dashboard() {
                     <table className="user-table">
                         <thead>
                             <tr>
-                                <th>Name</th>
+                                <th>First Name</th>
+                                <th>Last Name</th>
                                 <th>Role</th>
                                 <th>Email</th>
                                 <th>Phone</th>
@@ -171,7 +179,8 @@ export default function Dashboard() {
                         <tbody>
                             {users.map((user) => (
                                 <tr key={user.id}>
-                                    <td className="font-medium">{user.name}</td>
+                                    <td className="font-medium">{user.firstName || ''}</td>
+                                    <td className="font-medium">{user.lastName || ''}</td>
                                     <td>
                                         <span className={`role-badge ${user.role.toLowerCase()}`}>
                                             {user.role}
@@ -217,11 +226,17 @@ export default function Dashboard() {
                         </div>
                         {error && <div className="error-message">{error}</div>}
                         <div className="modal-body">
-                            <label className="form-label">Name</label>
+                            <label className="form-label">First Name</label>
                             <input
                                 className="form-input"
-                                value={editForm.name}
-                                onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                value={editForm.firstName}
+                                onChange={e => setEditForm({ ...editForm, firstName: e.target.value })}
+                            />
+                            <label className="form-label">Last Name</label>
+                            <input
+                                className="form-input"
+                                value={editForm.lastName}
+                                onChange={e => setEditForm({ ...editForm, lastName: e.target.value })}
                             />
                             <label className="form-label">Email</label>
                             <input
@@ -266,12 +281,19 @@ export default function Dashboard() {
                         </div>
                         {error && <div className="error-message">{error}</div>}
                         <div className="modal-body">
-                            <label className="form-label">Name <span className="text-secondary">(optional)</span></label>
+                            <label className="form-label">First Name</label>
                             <input
                                 className="form-input"
-                                placeholder="Defaults to email prefix"
-                                value={addForm.name}
-                                onChange={e => setAddForm({ ...addForm, name: e.target.value })}
+                                placeholder="First name"
+                                value={addForm.firstName}
+                                onChange={e => setAddForm({ ...addForm, firstName: e.target.value })}
+                            />
+                            <label className="form-label">Last Name</label>
+                            <input
+                                className="form-input"
+                                placeholder="Last name"
+                                value={addForm.lastName}
+                                onChange={e => setAddForm({ ...addForm, lastName: e.target.value })}
                             />
                             <label className="form-label">Email *</label>
                             <input

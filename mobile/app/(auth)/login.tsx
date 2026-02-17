@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
@@ -39,7 +40,7 @@ export default function LoginScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor }]}>
             <TouchableOpacity style={styles.langToggle} onPress={toggleLanguage}>
                 <Ionicons name="language" size={20} color="#007AFF" />
                 <Text style={styles.langText}>{language === 'en' ? 'Español' : 'English'}</Text>
@@ -73,7 +74,7 @@ export default function LoginScreen() {
             <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
                 <Text style={styles.link}>{t('auth.noAccount')}</Text>
             </TouchableOpacity>
-        </View>
+        </SafeAreaView>
     );
 }
 

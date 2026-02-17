@@ -14,8 +14,8 @@ export interface Job {
     address?: string;
     issueTag?: string;
     videoUrl?: string;
-    customer?: { user: { name: string; preferredLanguage?: string } };
-    technician?: { user: { name: string } };
+    customer?: { user: { name: string; firstName?: string; lastName?: string; preferredLanguage?: string } };
+    technician?: { user: { name: string; firstName?: string; lastName?: string } };
     estimate?: { currentAmount: number };
     // Included in socket payloads
     customerPreferredLanguage?: string;
@@ -53,6 +53,9 @@ export const useJobStore = create<JobState>((set, get) => ({
         jobs: state.jobs.map((j) => (j.id === jobId ? { ...j, status } : j))
     })),
     initializeSocketListeners: () => {
+        // Clean up any existing listeners first to prevent duplicates
+        get().cleanupSocketListeners();
+
         socketService.on('job:new', (job: Job) => {
             get().addJob(job);
 

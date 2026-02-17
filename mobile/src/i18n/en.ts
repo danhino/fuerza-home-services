@@ -8,6 +8,8 @@ const en = {
     'auth.loginFailed': 'Login Failed',
     'auth.invalidCredentials': 'Invalid credentials',
     'auth.createAccount': 'Create Account',
+    'auth.firstName': 'First Name',
+    'auth.lastName': 'Last Name',
     'auth.email': 'Email Address',
     'auth.phone': 'Phone Number',
     'auth.iAmTechnician': 'I am a Technician',
@@ -18,6 +20,7 @@ const en = {
     'auth.language': 'Language',
 
     // ── Home ─────────────────────────────────────────
+    'home.welcome': 'Welcome',
     'home.techDashboard': 'Technician Dashboard',
     'home.status': 'Status',
     'home.online': 'ONLINE',
@@ -55,7 +58,7 @@ const en = {
     'request.success': 'Request Submitted!',
     'request.successBody': 'We are searching for a technician near you.',
     'request.failed': 'Failed to submit request',
-    'request.issueType': 'What\'s the issue?',
+    'request.issueType': "What's the issue?",
     'request.video': 'Video',
     'request.addVideo': 'Add Video',
     'request.videoAdded': 'Video attached',
@@ -78,6 +81,17 @@ const en = {
     'triage.loading': 'Analyzing your request...',
     'triage.fallback': 'Could not generate a detailed estimate. General ranges shown.',
     'triage.confidence': 'confidence',
+
+    // ── Estimate Screen ──────────────────────────────
+    'estimate.title': 'Cost Estimate',
+    'estimate.subtitle': 'A transparent breakdown of your estimated costs.',
+    'estimate.labor': 'Labor',
+    'estimate.parts': 'Parts & Materials',
+    'estimate.platformFee': 'Platform Connection Fee',
+    'estimate.total': 'Estimated Total',
+    'estimate.disclaimer': 'This is an estimate only. Final cost may vary based on on-site diagnosis. No payment is charged now.',
+    'estimate.agree': 'Agree & Request Now',
+    'estimate.noData': 'No estimate data available. Please go back and try again.',
 
     // ── Issue Tiles — Plumbing ───────────────────────
     'issue.plumber.leakUnderSink': 'Leak under sink',

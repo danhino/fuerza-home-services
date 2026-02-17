@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Switch, Animated } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -68,7 +69,8 @@ export default function HomeScreen() {
     // ── Technician View ──────────────────────────────
     if (user?.role === 'TECHNICIAN') {
         return (
-            <View style={[styles.container, { backgroundColor }]}>
+            <SafeAreaView style={[styles.container, { backgroundColor }]}>
+                <Text style={[styles.welcomeText, { color: textColor }]}>{t('home.welcome')}, {user?.firstName || user?.name || ''}!</Text>
                 <Text style={[styles.title, { color: textColor }]}>{t('home.techDashboard')}</Text>
                 <View style={styles.statusContainer}>
                     <Text style={[styles.statusText, { color: textColor }]}>
@@ -84,7 +86,7 @@ export default function HomeScreen() {
                 <TouchableOpacity style={styles.linkButton} onPress={() => router.push('/(tabs)/jobs')}>
                     <Text style={styles.linkText}>{t('home.viewJobs')}</Text>
                 </TouchableOpacity>
-            </View>
+            </SafeAreaView>
         );
     }
 
@@ -92,7 +94,12 @@ export default function HomeScreen() {
     const filteredLocations = getFilteredLocations();
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
+            {/* Welcome banner */}
+            <View style={styles.welcomeBanner}>
+                <Text style={styles.welcomeBannerText}>{t('home.welcome')}, {user?.firstName || user?.name || ''}!</Text>
+            </View>
+
             {location ? (
                 <MapView
                     style={styles.map}
@@ -157,7 +164,7 @@ export default function HomeScreen() {
                     <Text style={styles.requestButtonText}>{t('home.requestServiceBtn')}</Text>
                 </TouchableOpacity>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -166,6 +173,18 @@ const styles = StyleSheet.create({
     map: { width: '100%', height: '100%' },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     title: { fontSize: 24, fontWeight: 'bold', margin: 20, textAlign: 'center' },
+    welcomeText: { fontSize: 20, fontWeight: '600', marginTop: 16, marginHorizontal: 20, textAlign: 'center' },
+    welcomeBanner: {
+        position: 'absolute' as const,
+        top: 60,
+        right: 16,
+        backgroundColor: 'rgba(24,24,28,0.9)',
+        borderRadius: 14,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        zIndex: 20,
+    },
+    welcomeBannerText: { color: '#fff', fontSize: 15, fontWeight: '600' as const },
     statusContainer: { alignItems: 'center', marginTop: 50 },
     statusText: { fontSize: 18, marginBottom: 20 },
     button: { padding: 15, borderRadius: 8, minWidth: 150, alignItems: 'center' },

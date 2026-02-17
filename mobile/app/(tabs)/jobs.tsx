@@ -3,6 +3,7 @@ import {
     View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
     RefreshControl, Image, Modal, Dimensions, Linking
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
 import { useAuthStore } from '../../src/store/useAuthStore';
@@ -78,7 +79,7 @@ export default function JobsScreen() {
                 <View style={styles.contentSection}>
                     <View style={styles.infoRow}>
                         <Text style={[styles.label, { color: textColor }]}>{t('jobs.customer')}:</Text>
-                        <Text style={[styles.value, { color: textColor }]}>{item.customer?.user?.name}</Text>
+                        <Text style={[styles.value, { color: textColor }]}>{item.customer?.user?.firstName ? `${item.customer.user.firstName} ${item.customer.user.lastName || ''}`.trim() : item.customer?.user?.name}</Text>
                     </View>
 
                     {isTechnician && item.address && (
@@ -127,7 +128,7 @@ export default function JobsScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor }]}>
             {jobs.length === 0 ? (
                 <Text style={[styles.empty, { color: textColor }]}>{t('jobs.noJobs')}</Text>
             ) : (
@@ -180,7 +181,7 @@ export default function JobsScreen() {
                     )}
                 </View>
             </Modal>
-        </View>
+        </SafeAreaView>
     );
 }
 

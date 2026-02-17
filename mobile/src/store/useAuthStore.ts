@@ -5,6 +5,8 @@ import { Platform } from 'react-native';
 interface User {
     id: string;
     name: string;
+    firstName?: string;
+    lastName?: string;
     role: 'CUSTOMER' | 'TECHNICIAN' | 'BOTH';
     preferredLanguage?: 'en' | 'es';
 }

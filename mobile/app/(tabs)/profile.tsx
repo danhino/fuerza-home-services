@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { useRouter } from 'expo-router';
 import { useThemeColor } from '../../src/hooks/useThemeColor';
@@ -28,7 +29,7 @@ export default function ProfileScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor }]}>
             <Text style={[styles.title, { color: textColor }]}>{t('profile.title')}</Text>
             <Text style={[styles.info, { color: textColor }]}>{t('profile.name')}: {user?.name}</Text>
             <Text style={[styles.info, { color: textColor }]}>{t('profile.role')}: {user?.role}</Text>
@@ -43,7 +44,7 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.button} onPress={handleLogout}>
                 <Text style={styles.buttonText}>{t('profile.logout')}</Text>
             </TouchableOpacity>
-        </View>
+        </SafeAreaView>
     );
 }
 

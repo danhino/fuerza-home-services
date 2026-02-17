@@ -8,6 +8,8 @@ const es = {
     'auth.loginFailed': 'Error de inicio de sesión',
     'auth.invalidCredentials': 'Credenciales inválidas',
     'auth.createAccount': 'Crear cuenta',
+    'auth.firstName': 'Nombre',
+    'auth.lastName': 'Apellido',
     'auth.email': 'Correo electrónico',
     'auth.phone': 'Número de teléfono',
     'auth.iAmTechnician': 'Soy técnico',
@@ -18,6 +20,7 @@ const es = {
     'auth.language': 'Idioma',
 
     // ── Home ─────────────────────────────────────────
+    'home.welcome': 'Bienvenido',
     'home.techDashboard': 'Panel del técnico',
     'home.status': 'Estado',
     'home.online': 'EN LÍNEA',
@@ -78,6 +81,18 @@ const es = {
     'triage.loading': 'Analizando tu solicitud...',
     'triage.fallback': 'No se pudo generar un estimado detallado. Se muestran rangos generales.',
     'triage.confidence': 'confianza',
+
+    // ── Pantalla de Estimado ─────────────────────────
+    'estimate.title': 'Estimado de Costo',
+    'estimate.subtitle': 'Aquí tienes un desglose transparente de tus costos estimados.',
+    'estimate.labor': 'Mano de Obra',
+    'estimate.parts': 'Partes y Materiales',
+    'estimate.platformFee': 'Tarifa de Conexión',
+    'estimate.total': 'Total Estimado',
+    'estimate.disclaimer': 'Esto es solo un estimado. El costo final puede variar según el diagnóstico del técnico en sitio. No se cobra ningún pago ahora.',
+    'estimate.agree': 'Aceptar y Solicitar Ahora',
+    'estimate.noData': 'No hay datos de estimado disponibles. Regresa e intenta de nuevo.',
+
 
     // ── Issue Tiles — Plomería ───────────────────────
     'issue.plumber.leakUnderSink': 'Fuga debajo del fregadero',

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, Switch } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
@@ -8,6 +9,8 @@ import { useThemeColor } from '../../src/hooks/useThemeColor';
 import { t, useLanguageStore } from '../../src/i18n';
 
 export default function RegisterScreen() {
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
@@ -24,7 +27,7 @@ export default function RegisterScreen() {
     const handleRegister = async () => {
         try {
             const role = isTechnician ? 'TECHNICIAN' : 'CUSTOMER';
-            const response = await api.post('/auth/register', { email, phone, password, role, name: '' });
+            const response = await api.post('/auth/register', { email, phone, password, role, firstName, lastName, name: `${firstName} ${lastName}`.trim() });
             const { token, user } = response.data;
             login(token, user);
             // Persist language to backend on registration
@@ -38,9 +41,23 @@ export default function RegisterScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor }]}>
             <Text style={[styles.title, { color: textColor }]}>{t('auth.createAccount')}</Text>
 
+            <TextInput
+                style={[styles.input, { borderColor, color: textColor }]}
+                placeholder={t('auth.firstName')}
+                placeholderTextColor={useThemeColor({}, 'icon')}
+                value={firstName}
+                onChangeText={setFirstName}
+            />
+            <TextInput
+                style={[styles.input, { borderColor, color: textColor }]}
+                placeholder={t('auth.lastName')}
+                placeholderTextColor={useThemeColor({}, 'icon')}
+                value={lastName}
+                onChangeText={setLastName}
+            />
             <TextInput
                 style={[styles.input, { borderColor, color: textColor }]}
                 placeholder={t('auth.email')}
@@ -84,7 +101,7 @@ export default function RegisterScreen() {
             <TouchableOpacity onPress={() => router.back()}>
                 <Text style={styles.link}>{t('auth.haveAccount')}</Text>
             </TouchableOpacity>
-        </View>
+        </SafeAreaView>
     );
 }
 

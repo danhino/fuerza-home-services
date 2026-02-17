@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 export const register = async (req: Request, res: Response) => {
     try {
-        const { phone, email, name, password, role } = req.body;
+        const { phone, email, name, password, role, firstName, lastName } = req.body;
 
         if (!phone || !email || !password) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -32,7 +32,9 @@ export const register = async (req: Request, res: Response) => {
             data: {
                 phone,
                 email,
-                name: name || email.split('@')[0], // Fallback name if not provided
+                name: name || `${firstName || ''} ${lastName || ''}`.trim() || email.split('@')[0],
+                firstName: firstName || '',
+                lastName: lastName || '',
                 password: hashedPassword,
                 role: userRole,
             },
@@ -50,7 +52,7 @@ export const register = async (req: Request, res: Response) => {
         }
 
         const token = generateToken({ userId: user.id, role: user.role });
-        res.status(201).json({ token, user: { id: user.id, name: user.name, role: user.role, preferredLanguage: user.preferredLanguage } });
+        res.status(201).json({ token, user: { id: user.id, name: user.name, firstName: user.firstName, lastName: user.lastName, role: user.role, preferredLanguage: user.preferredLanguage } });
     } catch (error) {
         console.error('Registration error:', error);
         res.status(500).json({ error: 'Registration failed' });
@@ -84,7 +86,7 @@ export const login = async (req: Request, res: Response) => {
         }
 
         const token = generateToken({ userId: user.id, role: user.role });
-        res.json({ token, user: { id: user.id, name: user.name, role: user.role, preferredLanguage: user.preferredLanguage } });
+        res.json({ token, user: { id: user.id, name: user.name, firstName: user.firstName, lastName: user.lastName, role: user.role, preferredLanguage: user.preferredLanguage } });
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: 'Login failed' });

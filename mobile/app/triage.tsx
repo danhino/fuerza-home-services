@@ -3,11 +3,13 @@ import {
     View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
     ScrollView, Alert, KeyboardAvoidingView, Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import api from '../src/services/api';
 import { useThemeColor } from '../src/hooks/useThemeColor';
 import { t, useLanguageStore } from '../src/i18n';
+import { useTriageStore } from '../src/store/useTriageStore';
 
 interface LikelyIssue {
     name: string;
@@ -34,8 +36,9 @@ const FALLBACK_RESULT: TriageResult = {
 
 export default function TriageScreen() {
     const router = useRouter();
-    const params = useLocalSearchParams();
     const language = useLanguageStore((s) => s.language);
+    const pending = useTriageStore((s) => s.pending);
+    const clearPending = useTriageStore((s) => s.clear);
 
     const [triageResult, setTriageResult] = useState<TriageResult | null>(null);
     const [loading, setLoading] = useState(true);
@@ -47,28 +50,23 @@ export default function TriageScreen() {
     const cardColor = useThemeColor({}, 'card');
     const borderColor = useThemeColor({}, 'border');
 
-    // Parse params
-    const trade = params.trade as string;
-    const description = params.description as string;
-    const address = params.address as string;
-    const lat = parseFloat(params.lat as string);
-    const lng = parseFloat(params.lng as string);
-    const issueTag = params.issueTag as string | undefined;
-    const photoData = params.photoData ? JSON.parse(params.photoData as string) : [];
-    const videoData = params.videoData as string | undefined;
-
     useEffect(() => {
+        if (!pending) {
+            router.back();
+            return;
+        }
         callTriage();
     }, []);
 
     const callTriage = async () => {
+        if (!pending) return;
         try {
             const response = await api.post('/triage', {
-                trade,
-                issueTag: issueTag || undefined,
-                description,
-                photoUrls: photoData.length > 0 ? ['attached'] : [],
-                videoUrl: videoData ? 'attached' : undefined,
+                trade: pending.trade,
+                issueTag: pending.issueTag || undefined,
+                description: pending.description,
+                photoUrls: pending.photoData.length > 0 ? ['attached'] : [],
+                videoUrl: pending.videoData ? 'attached' : undefined,
                 preferredLanguage: language,
             });
             setTriageResult(response.data);
@@ -82,26 +80,11 @@ export default function TriageScreen() {
         }
     };
 
-    const handleContinue = async () => {
-        setSubmitting(true);
-        try {
-            await api.post('/jobs', {
-                trade,
-                description,
-                address,
-                lat,
-                lng,
-                photos: photoData,
-                issueTag: issueTag || undefined,
-                videoUrl: videoData || undefined,
-            });
-            Alert.alert(t('request.success'), t('request.successBody'));
-            router.replace('/(tabs)/jobs');
-        } catch (e) {
-            Alert.alert(t('home.error'), t('request.failed'));
-        } finally {
-            setSubmitting(false);
-        }
+    const handleContinue = () => {
+        if (!pending || !triageResult) return;
+        // Store triage result for the estimate screen
+        useTriageStore.getState().setTriageResult(triageResult);
+        router.push('/estimate');
     };
 
     const handleEdit = () => {
@@ -121,108 +104,110 @@ export default function TriageScreen() {
     const isUrgent = result.severity === 'URGENT_SAMEDAY';
 
     return (
-        <KeyboardAvoidingView
-            style={{ flex: 1, backgroundColor }}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-            <ScrollView contentContainerStyle={styles.scroll}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={handleEdit}>
-                        <Ionicons name="arrow-back" size={24} color={textColor} />
-                    </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: textColor }]}>{t('triage.title')}</Text>
-                    <View style={{ width: 24 }} />
-                </View>
-
-                {/* Fallback warning */}
-                {isFallback && (
-                    <View style={styles.fallbackBanner}>
-                        <Ionicons name="warning" size={18} color="#FF9500" />
-                        <Text style={styles.fallbackText}>{t('triage.fallback')}</Text>
+        <SafeAreaView style={{ flex: 1, backgroundColor }}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                <ScrollView contentContainerStyle={styles.scroll}>
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <TouchableOpacity onPress={handleEdit}>
+                            <Ionicons name="arrow-back" size={24} color={textColor} />
+                        </TouchableOpacity>
+                        <Text style={[styles.headerTitle, { color: textColor }]}>{t('triage.title')}</Text>
+                        <View style={{ width: 24 }} />
                     </View>
-                )}
 
-                {/* Likely Issue */}
-                <View style={[styles.card, { backgroundColor: cardColor, borderColor }]}>
-                    <Text style={[styles.cardLabel, { color: textColor }]}>{t('triage.likelyIssue')}</Text>
-                    {result.likelyIssues.map((issue, i) => (
-                        <View key={i} style={styles.issueRow}>
-                            <Text style={[styles.issueName, { color: textColor }]}>{issue.name}</Text>
-                            <Text style={styles.issueConfidence}>
-                                {Math.round(issue.confidence * 100)}% {t('triage.confidence')}
+                    {/* Fallback warning */}
+                    {isFallback && (
+                        <View style={styles.fallbackBanner}>
+                            <Ionicons name="warning" size={18} color="#FF9500" />
+                            <Text style={styles.fallbackText}>{t('triage.fallback')}</Text>
+                        </View>
+                    )}
+
+                    {/* Likely Issue */}
+                    <View style={[styles.card, { backgroundColor: cardColor, borderColor }]}>
+                        <Text style={[styles.cardLabel, { color: textColor }]}>{t('triage.likelyIssue')}</Text>
+                        {result.likelyIssues.map((issue, i) => (
+                            <View key={i} style={styles.issueRow}>
+                                <Text style={[styles.issueName, { color: textColor }]}>{issue.name}</Text>
+                                <Text style={styles.issueConfidence}>
+                                    {Math.round(issue.confidence * 100)}% {t('triage.confidence')}
+                                </Text>
+                            </View>
+                        ))}
+                    </View>
+
+                    {/* Severity */}
+                    <View style={[styles.card, { backgroundColor: cardColor, borderColor }]}>
+                        <Text style={[styles.cardLabel, { color: textColor }]}>{t('triage.severity')}</Text>
+                        <View style={[styles.severityBadge, isUrgent ? styles.urgentBadge : styles.scheduledBadge]}>
+                            <Ionicons
+                                name={isUrgent ? 'alert-circle' : 'calendar'}
+                                size={18}
+                                color="#fff"
+                            />
+                            <Text style={styles.severityText}>
+                                {isUrgent ? t('triage.severityUrgent') : t('triage.severityScheduled')}
                             </Text>
                         </View>
-                    ))}
-                </View>
-
-                {/* Severity */}
-                <View style={[styles.card, { backgroundColor: cardColor, borderColor }]}>
-                    <Text style={[styles.cardLabel, { color: textColor }]}>{t('triage.severity')}</Text>
-                    <View style={[styles.severityBadge, isUrgent ? styles.urgentBadge : styles.scheduledBadge]}>
-                        <Ionicons
-                            name={isUrgent ? 'alert-circle' : 'calendar'}
-                            size={18}
-                            color={isUrgent ? '#fff' : '#fff'}
-                        />
-                        <Text style={styles.severityText}>
-                            {isUrgent ? t('triage.severityUrgent') : t('triage.severityScheduled')}
-                        </Text>
                     </View>
-                </View>
 
-                {/* Time Estimate */}
-                <View style={[styles.card, { backgroundColor: cardColor, borderColor }]}>
-                    <Text style={[styles.cardLabel, { color: textColor }]}>{t('triage.timeEstimate')}</Text>
-                    <View style={styles.rangeRow}>
-                        <Ionicons name="time-outline" size={22} color="#007AFF" />
-                        <Text style={[styles.rangeText, { color: textColor }]}>
-                            {result.timeEstimateLowMins} – {result.timeEstimateHighMins} {t('triage.minutes')}
-                        </Text>
+                    {/* Time Estimate */}
+                    <View style={[styles.card, { backgroundColor: cardColor, borderColor }]}>
+                        <Text style={[styles.cardLabel, { color: textColor }]}>{t('triage.timeEstimate')}</Text>
+                        <View style={styles.rangeRow}>
+                            <Ionicons name="time-outline" size={22} color="#007AFF" />
+                            <Text style={[styles.rangeText, { color: textColor }]}>
+                                {result.timeEstimateLowMins} – {result.timeEstimateHighMins} {t('triage.minutes')}
+                            </Text>
+                        </View>
                     </View>
-                </View>
 
-                {/* Price Range */}
-                <View style={[styles.card, { backgroundColor: cardColor, borderColor }]}>
-                    <Text style={[styles.cardLabel, { color: textColor }]}>{t('triage.priceRange')}</Text>
-                    <View style={styles.rangeRow}>
-                        <Ionicons name="cash-outline" size={22} color="#34C759" />
-                        <Text style={[styles.rangeText, { color: textColor }]}>
-                            ${result.priceLow} – ${result.priceHigh}
-                        </Text>
+                    {/* Price Range */}
+                    <View style={[styles.card, { backgroundColor: cardColor, borderColor }]}>
+                        <Text style={[styles.cardLabel, { color: textColor }]}>{t('triage.priceRange')}</Text>
+                        <View style={styles.rangeRow}>
+                            <Ionicons name="cash-outline" size={22} color="#34C759" />
+                            <Text style={[styles.rangeText, { color: textColor }]}>
+                                ${result.priceLow} – ${result.priceHigh}
+                            </Text>
+                        </View>
                     </View>
-                </View>
 
-                {/* Disclaimer */}
-                <View style={styles.disclaimerContainer}>
-                    <Ionicons name="information-circle-outline" size={16} color="#8e8e93" />
-                    <Text style={styles.disclaimerText}>{t('triage.disclaimer')}</Text>
-                </View>
+                    {/* Disclaimer */}
+                    <View style={styles.disclaimerContainer}>
+                        <Ionicons name="information-circle-outline" size={16} color="#8e8e93" />
+                        <Text style={styles.disclaimerText}>{t('triage.disclaimer')}</Text>
+                    </View>
 
-                {/* Buttons */}
-                <View style={styles.buttonRow}>
-                    <TouchableOpacity style={[styles.editButton, { borderColor }]} onPress={handleEdit}>
-                        <Ionicons name="pencil" size={18} color={textColor} />
-                        <Text style={[styles.editButtonText, { color: textColor }]}>{t('triage.edit')}</Text>
-                    </TouchableOpacity>
+                    {/* Buttons */}
+                    <View style={styles.buttonRow}>
+                        <TouchableOpacity style={[styles.editButton, { borderColor }]} onPress={handleEdit}>
+                            <Ionicons name="pencil" size={18} color={textColor} />
+                            <Text style={[styles.editButtonText, { color: textColor }]}>{t('triage.edit')}</Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[styles.continueButton, submitting && { opacity: 0.6 }]}
-                        onPress={handleContinue}
-                        disabled={submitting}
-                    >
-                        {submitting ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <>
-                                <Text style={styles.continueButtonText}>{t('triage.continue')}</Text>
-                                <Ionicons name="arrow-forward" size={18} color="#fff" />
-                            </>
-                        )}
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                        <TouchableOpacity
+                            style={[styles.continueButton, submitting && { opacity: 0.6 }]}
+                            onPress={handleContinue}
+                            disabled={submitting}
+                        >
+                            {submitting ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <>
+                                    <Text style={styles.continueButtonText}>{t('triage.continue')}</Text>
+                                    <Ionicons name="arrow-forward" size={18} color="#fff" />
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
@@ -246,7 +231,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         marginBottom: 24,
-        marginTop: 40,
+        marginTop: 8,
     },
     headerTitle: {
         fontSize: 20,
