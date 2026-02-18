@@ -118,6 +118,24 @@ model Job {
   paymentHoldStatus      PaymentStatus           @default(NONE)
   estimateLow            Float?
   estimateHigh           Float?
+  changeOrders           ChangeOrder[]
+  finalAmount            Int?          // in cents
+  tipAmount              Int?          // in cents
+  feeBreakdown           Json?         // Stores platform fee details
+  receiptPdfUrl          String?
+  receiptEmailedAt       DateTime?
+  warrantyDays           Int?
+  review                 Review?
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  jobId     String   @unique
+  job       Job      @relation(fields: [jobId], references: [id])
+  rating    Int      // 1-5
+  tags      String[] // "Professional", "Punctual", etc.
+  comment   String?
+  createdAt DateTime @default(now())
 }
 
 model Estimate {
@@ -163,4 +181,25 @@ model Payment {
   method    String?
   receiptUrl String?
   createdAt DateTime      @default(now())
+}
+
+model ChangeOrder {
+  id          String            @id @default(uuid())
+  jobId       String
+  job         Job               @relation(fields: [jobId], references: [id])
+  status      String            @default("PENDING") // PENDING, APPROVED, DECLINED
+  totalAmount Float
+  items       ChangeOrderItem[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model ChangeOrderItem {
+  id            String      @id @default(uuid())
+  changeOrderId String
+  changeOrder   ChangeOrder @relation(fields: [changeOrderId], references: [id], onDelete: Cascade)
+  type          String      // PARTS, LABOR
+  description   String
+  quantity      Int         @default(1)
+  unitPrice     Float
 }

@@ -18,11 +18,49 @@ export interface Job {
     technician?: { user: { name: string; firstName?: string; lastName?: string } };
     estimate?: { currentAmount: number };
     // Included in socket payloads
+    paymentProvider?: 'STRIPE' | 'SQUARE' | 'NONE';
+    holdRef?: string;
+    holdAmount?: number;
+    paymentHoldStatus?: 'NONE' | 'PENDING' | 'HOLD_PENDING' | 'HELD' | 'CAPTURED' | 'PAID' | 'FAILED';
     customerPreferredLanguage?: string;
     customerName?: string;
     // Estimate range for technician earnings display
     estimateLow?: number;
     estimateHigh?: number;
+    changeOrders?: ChangeOrder[];
+    finalAmount?: number;
+    tipAmount?: number;
+    feeBreakdown?: any;
+    receiptPdfUrl?: string;
+    receiptEmailedAt?: string;
+    warrantyDays?: number;
+    review?: Review;
+}
+
+export interface Review {
+    id: string;
+    jobId: string;
+    rating: number;
+    tags: string[];
+    comment?: string;
+    createdAt: string;
+}
+
+export interface ChangeOrder {
+    id: string;
+    jobId: string;
+    status: 'PENDING' | 'APPROVED' | 'DECLINED';
+    totalAmount: number;
+    items: ChangeOrderItem[];
+    createdAt: string;
+}
+
+export interface ChangeOrderItem {
+    id: string;
+    type: 'PARTS' | 'LABOR';
+    description: string;
+    quantity: number;
+    unitPrice: number;
 }
 
 interface JobState {
@@ -34,6 +72,10 @@ interface JobState {
     cleanupSocketListeners: () => void;
     addJob: (job: Job) => void;
     updateJobStatus: (jobId: string, status: string) => void;
+    addChangeOrderToJob: (jobId: string, changeOrder: ChangeOrder) => void;
+    updateChangeOrderInJob: (jobId: string, changeOrder: ChangeOrder) => void;
+    capturePayment: (jobId: string, tipAmountCents: number) => Promise<void>;
+    submitReview: (jobId: string, rating: number, tags: string[], comment: string) => Promise<void>;
 }
 
 export const useJobStore = create<JobState>((set, get) => ({
@@ -55,6 +97,48 @@ export const useJobStore = create<JobState>((set, get) => ({
     updateJobStatus: (jobId, status) => set((state) => ({
         jobs: state.jobs.map((j) => (j.id === jobId ? { ...j, status } : j))
     })),
+    addChangeOrderToJob: (jobId, changeOrder) => set((state) => ({
+        jobs: state.jobs.map((j) => {
+            if (j.id !== jobId) return j;
+            const currentOrders = j.changeOrders || [];
+            return { ...j, changeOrders: [...currentOrders, changeOrder] };
+        })
+    })),
+    updateChangeOrderInJob: (jobId, changeOrder) => set((state) => ({
+        jobs: state.jobs.map((j) => {
+            if (j.id !== jobId) return j;
+            return {
+                ...j,
+                changeOrders: (j.changeOrders || []).map((co) =>
+                    co.id === changeOrder.id ? changeOrder : co
+                )
+            };
+        })
+    })),
+    capturePayment: async (jobId: string, tipAmountCents: number) => {
+        try {
+            const response = await api.post(`/jobs/${jobId}/payments/capture`, { tipAmountCents });
+            const updatedJob = response.data;
+            set((state) => ({
+                jobs: state.jobs.map((j) => (j.id === jobId ? updatedJob : j)),
+            }));
+        } catch (error) {
+            console.error('Capture payment failed', error);
+            throw error;
+        }
+    },
+    submitReview: async (jobId, rating, tags, comment) => {
+        try {
+            const res = await api.post(`/jobs/${jobId}/reviews`, { rating, tags, comment });
+            const review = res.data;
+            set((state) => ({
+                jobs: state.jobs.map((j) => j.id === jobId ? { ...j, review } : j)
+            }));
+        } catch (error) {
+            console.error('Submit review failed', error);
+            throw error;
+        }
+    },
     initializeSocketListeners: () => {
         // Clean up any existing listeners first to prevent duplicates
         get().cleanupSocketListeners();
@@ -79,10 +163,22 @@ export const useJobStore = create<JobState>((set, get) => ({
         socketService.on('job:matched', ({ job }: { job: Job }) => {
             get().updateJobStatus(job.id, job.status);
         });
+
+        socketService.on('job:changeOrder', ({ jobId, changeOrder }: { jobId: string, changeOrder: ChangeOrder }) => {
+            get().addChangeOrderToJob(jobId, changeOrder);
+            Alert.alert(t('jobs.changeOrder.newTitle'), t('jobs.changeOrder.newBody'));
+        });
+
+        socketService.on('job:changeOrderUpdate', ({ jobId, changeOrder, status }: { jobId: string, changeOrder: ChangeOrder, status: string }) => {
+            get().updateChangeOrderInJob(jobId, changeOrder);
+            Alert.alert(t('jobs.changeOrder.updateTitle'), t('jobs.changeOrder.updateBody', { status }));
+        });
     },
     cleanupSocketListeners: () => {
         socketService.off('job:new');
         socketService.off('job:status');
         socketService.off('job:matched');
+        socketService.off('job:changeOrder');
+        socketService.off('job:changeOrderUpdate');
     }
 }));

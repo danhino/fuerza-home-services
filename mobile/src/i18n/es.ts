@@ -139,6 +139,18 @@ const es = {
     'jobs.accepted': '¡Trabajo aceptado!',
     'jobs.acceptFailed': 'No se pudo aceptar el trabajo',
 
+    // ── Jobs — Invoice ───────────────────────────────
+    'jobs.invoice.title': 'Factura Final',
+    'jobs.invoice.baseEstimate': 'Estimación Base',
+    'jobs.invoice.changeOrder': 'Orden de Cambio',
+    'jobs.invoice.subtotal': 'Subtotal',
+    'jobs.invoice.addTip': 'Agregar Propina',
+    'jobs.invoice.custom': 'Personalizado',
+    'jobs.invoice.total': 'Total',
+    'jobs.invoice.pay': 'Pagar',
+    'jobs.paymentCaptured': 'Pago Capturado Exitosamente',
+    'jobs.paymentFailed': 'Fallo al Capturar Pago',
+
     // ── Jobs — Spanish Customer Flag ─────────────────
     'jobs.customerLanguage.spanishCustomerTitle': 'Cliente habla español',
     'jobs.customerLanguage.spanishCustomerBody': 'Este cliente prefiere español. Usa español en chats/llamadas si es posible.',

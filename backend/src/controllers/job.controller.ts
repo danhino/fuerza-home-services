@@ -2,8 +2,104 @@ import { Response } from 'express';
 import { PrismaClient, JobStatus } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { socketService } from '../services/socket.service';
+import { captureHold } from '../services/payment.service';
 
 const prisma = new PrismaClient();
+
+export const capturePayment = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params as { id: string };
+        const { tipAmountCents } = req.body; // Optional tip in cents
+
+        const job = await prisma.job.findUnique({
+            where: { id },
+            include: {
+                estimate: true,
+                changeOrders: { where: { status: 'APPROVED' }, include: { items: true } },
+                customer: { include: { user: true } },
+                technician: { include: { user: true } }
+            },
+        });
+
+        if (!job) return res.status(404).json({ error: 'Job not found' });
+        if (!job.holdRef) return res.status(400).json({ error: 'No payment hold found for this job' });
+        if (job.paymentHoldStatus === 'CAPTURED') return res.status(400).json({ error: 'Payment already captured' });
+
+        // Calculate Totals
+        const baseAmount = job.estimate?.currentAmount || 0; // In dollars
+        const changeOrders = job.changeOrders || [];
+        const changeOrderTotal = changeOrders.reduce((sum: number, co: any) => sum + co.totalAmount, 0); // In dollars
+
+        const subtotalDollars = baseAmount + changeOrderTotal;
+        const subtotalCents = Math.round(subtotalDollars * 100);
+        const finalTipCents = tipAmountCents || 0;
+        const totalAmountCents = subtotalCents + finalTipCents;
+
+        // Calculate Platform Fees
+        // Fee = $2.00 Booking Fee + 3% of Labor
+        // Assumption: Base estimate is treated as Labor for MVP simplicity unless broken down
+        // We'll treat the entire subtotal as subject to the 3% fee for now to ensure coverage, 
+        // or strictly follow the plan: Base + Labor COs.
+        // Let's stick to the plan: Base + Labor COs.
+
+        let laborAmount = baseAmount;
+        changeOrders.forEach((co: any) => {
+            if (co.items) {
+                co.items.forEach((item: any) => {
+                    if (item.type === 'LABOR') {
+                        laborAmount += (item.quantity * item.unitPrice);
+                    }
+                });
+            }
+        });
+
+        const bookingFeeCents = 200; // $2.00
+        const laborFeeCents = Math.round(laborAmount * 100 * 0.03); // 3%
+        const totalPlatformFeeCents = bookingFeeCents + laborFeeCents;
+
+        const feeBreakdown = {
+            bookingFee: 200,
+            laborFee: laborFeeCents,
+            totalFee: totalPlatformFeeCents,
+            calculationBase: laborAmount
+        };
+
+        // Capture Payment via Stripe
+        const success = await captureHold(job.holdRef, totalAmountCents);
+
+        if (!success) {
+            return res.status(500).json({ error: 'Failed to capture payment with payment provider' });
+        }
+
+        // Update Job
+        const updatedJob = await prisma.job.update({
+            where: { id },
+            data: {
+                status: JobStatus.COMPLETED,
+                paymentHoldStatus: 'CAPTURED',
+                finalAmount: totalAmountCents,
+                tipAmount: finalTipCents,
+                feeBreakdown: feeBreakdown as any // Cast to any to avoid Json compatibility issues if present
+            },
+            include: {
+                customer: { include: { user: true } },
+                technician: { include: { user: true } }
+            }
+        });
+
+        // Notify
+        socketService.emitToUser(job.customerId, 'job:payment', { job: updatedJob });
+        if (job.technicianId) {
+            socketService.emitToUser(job.technicianId, 'job:payment', { job: updatedJob });
+        }
+
+        res.json(updatedJob);
+
+    } catch (error) {
+        console.error('Capture Payment Error:', error);
+        res.status(500).json({ error: 'Failed to capture payment' });
+    }
+};
 
 export const createJob = async (req: AuthRequest, res: Response) => {
     try {

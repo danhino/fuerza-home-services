@@ -138,6 +138,18 @@ const en = {
     'jobs.accepted': 'Job Accepted!',
     'jobs.acceptFailed': 'Failed to accept job',
 
+    // ── Jobs — Invoice ───────────────────────────────
+    'jobs.invoice.title': 'Final Invoice',
+    'jobs.invoice.baseEstimate': 'Base Estimate',
+    'jobs.invoice.changeOrder': 'Change Order',
+    'jobs.invoice.subtotal': 'Subtotal',
+    'jobs.invoice.addTip': 'Add Tip',
+    'jobs.invoice.custom': 'Custom',
+    'jobs.invoice.total': 'Total',
+    'jobs.invoice.pay': 'Pay',
+    'jobs.paymentCaptured': 'Payment Captured Successfully',
+    'jobs.paymentFailed': 'Payment Capture Failed',
+
     // ── Jobs — Spanish Customer Flag ─────────────────
     'jobs.customerLanguage.spanishCustomerTitle': 'Spanish-speaking customer',
     'jobs.customerLanguage.spanishCustomerBody': 'This customer prefers Spanish. Use Spanish in chat/calls if possible.',
