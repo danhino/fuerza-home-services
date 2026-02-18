@@ -150,6 +150,12 @@ const en = {
     'jobs.paymentCaptured': 'Payment Captured Successfully',
     'jobs.paymentFailed': 'Payment Capture Failed',
 
+    // ── Jobs — Change Order ─────────────────────────
+    'jobs.changeOrder.newTitle': 'New Change Order',
+    'jobs.changeOrder.newBody': 'A new change order has been verified.',
+    'jobs.changeOrder.updateTitle': 'Change Order Update',
+    'jobs.changeOrder.updateBody': 'Change order status: {status}',
+
     // ── Jobs — Spanish Customer Flag ─────────────────
     'jobs.customerLanguage.spanishCustomerTitle': 'Spanish-speaking customer',
     'jobs.customerLanguage.spanishCustomerBody': 'This customer prefers Spanish. Use Spanish in chat/calls if possible.',

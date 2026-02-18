@@ -32,7 +32,15 @@ export const useLanguageStore = create<LanguageState>((set) => ({
 
 // ── Helper function ──────────────────────────────────
 
-export function t(key: string): string {
+export function t(key: string, params?: Record<string, string | number>): string {
     const lang = useLanguageStore.getState().language;
-    return translations[lang]?.[key] ?? translations['en']?.[key] ?? key;
+    let translation = translations[lang]?.[key] ?? translations['en']?.[key] ?? key;
+
+    if (params) {
+        Object.entries(params).forEach(([k, value]) => {
+            translation = translation.replace(`{${k}}`, String(value));
+        });
+    }
+
+    return translation;
 }
