@@ -13,6 +13,10 @@ import api from '../../src/services/api';
 import { useThemeColor } from '../../src/hooks/useThemeColor';
 import { t, useLanguageStore } from '../../src/i18n';
 import { useTriageStore } from '../../src/store/useTriageStore';
+import { ScreenHeader, CategoryChip } from '../../src/components/stitch_ui';
+import { Typography } from '../../src/constants/Typography';
+import { Spacing, Radius, Elevation } from '../../src/constants/Spacing';
+import { Brand, Palette } from '../../src/constants/Colors';
 
 type Trade = 'PLUMBER' | 'ELECTRICIAN' | 'POOL' | 'CLEANING';
 
@@ -247,57 +251,38 @@ export default function RequestScreen() {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor }}>
+            <ScreenHeader
+                title={t('request.title')}
+                onBack={() => router.back()}
+                textColor={textColor}
+            />
+
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                <ScrollView contentContainerStyle={styles.scroll}>
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <TouchableOpacity onPress={() => router.back()}>
-                            <Ionicons name="arrow-back" size={24} color={textColor} />
-                        </TouchableOpacity>
-                        <Text style={[styles.headerTitle, { color: textColor }]}>{t('request.title')}</Text>
-                        <View style={{ width: 24 }} />
-                    </View>
-
-                    {/* Trade Picker */}
+                <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+                    {/* Trade Picker — reuse CategoryChip */}
                     <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.selectTrade')}</Text>
-                    <View style={styles.tradeRow}>
-                        {TRADES.map((trade) => {
-                            const isSelected = selectedTrade === trade.key;
-                            return (
-                                <TouchableOpacity
-                                    key={trade.key}
-                                    style={[
-                                        styles.tradeChip,
-                                        { borderColor: trade.color },
-                                        isSelected && { backgroundColor: trade.color },
-                                    ]}
-                                    onPress={() => { setSelectedTrade(trade.key); setSelectedIssueTag(null); }}
-                                >
-                                    <Ionicons
-                                        name={trade.icon as any}
-                                        size={18}
-                                        color={isSelected ? '#fff' : trade.color}
-                                    />
-                                    <Text style={[
-                                        styles.tradeChipText,
-                                        { color: isSelected ? '#fff' : trade.color },
-                                    ]}>
-                                        {t(trade.i18nKey)}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
+                        {TRADES.map((trade) => (
+                            <CategoryChip
+                                key={trade.key}
+                                icon={trade.icon}
+                                label={t(trade.i18nKey)}
+                                color={trade.color}
+                                isSelected={selectedTrade === trade.key}
+                                onPress={() => { setSelectedTrade(trade.key); setSelectedIssueTag(null); }}
+                            />
+                        ))}
+                    </ScrollView>
 
                     {/* Issue Tiles */}
                     <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.issueType')}</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.issueTileScroll}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
                         {ISSUE_TILES[selectedTrade].map((tile) => {
                             const isSelected = selectedIssueTag === tile.tag;
-                            const tradeColor = TRADES.find((tr) => tr.key === selectedTrade)?.color || '#007AFF';
+                            const tradeColor = TRADES.find((tr) => tr.key === selectedTrade)?.color || Brand.primary;
                             return (
                                 <TouchableOpacity
                                     key={tile.tag}
@@ -334,7 +319,7 @@ export default function RequestScreen() {
                         <TextInput
                             style={[styles.input, { borderColor, color: textColor, backgroundColor: cardColor }]}
                             placeholder={t('request.addressPlaceholder')}
-                            placeholderTextColor="#8e8e93"
+                            placeholderTextColor={Palette.textSecondary}
                             value={address}
                             onChangeText={searchAddress}
                             onFocus={() => { if (addressSuggestions.length > 0) setShowSuggestions(true); }}
@@ -347,7 +332,7 @@ export default function RequestScreen() {
                                         style={[styles.suggestionItem, idx < addressSuggestions.length - 1 && { borderBottomWidth: 1, borderBottomColor: borderColor }]}
                                         onPress={() => selectSuggestion(item)}
                                     >
-                                        <Ionicons name="location-outline" size={16} color="#8e8e93" />
+                                        <Ionicons name="location-outline" size={16} color={Palette.textSecondary} />
                                         <Text style={[styles.suggestionText, { color: textColor }]} numberOfLines={2}>
                                             {item.display_name}
                                         </Text>
@@ -362,7 +347,7 @@ export default function RequestScreen() {
                     <TextInput
                         style={[styles.input, styles.textArea, { borderColor, color: textColor, backgroundColor: cardColor }]}
                         placeholder={t('request.descriptionPlaceholder')}
-                        placeholderTextColor="#8e8e93"
+                        placeholderTextColor={Palette.textSecondary}
                         value={description}
                         onChangeText={setDescription}
                         multiline
@@ -382,9 +367,9 @@ export default function RequestScreen() {
                             </View>
                         ))}
                         {photos.length < 5 && (
-                            <TouchableOpacity style={[styles.addPhotoBtn, { borderColor }]} onPress={pickAndCompressPhotos}>
-                                <Ionicons name="camera" size={28} color="#8e8e93" />
-                                <Text style={styles.addPhotoText}>{t('request.addPhotos')}</Text>
+                            <TouchableOpacity style={[styles.addMediaBtn, { borderColor }]} onPress={pickAndCompressPhotos}>
+                                <Ionicons name="camera" size={26} color={Palette.textSecondary} />
+                                <Text style={styles.addMediaText}>{t('request.addPhotos')}</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -394,7 +379,7 @@ export default function RequestScreen() {
                     {videoUri ? (
                         <View style={styles.videoRow}>
                             <View style={styles.videoAttached}>
-                                <Ionicons name="videocam" size={20} color="#007AFF" />
+                                <Ionicons name="videocam" size={20} color={Brand.primary} />
                                 <Text style={styles.videoAttachedText}>{t('request.videoAdded')}</Text>
                             </View>
                             <TouchableOpacity onPress={() => setVideoUri(null)}>
@@ -402,9 +387,9 @@ export default function RequestScreen() {
                             </TouchableOpacity>
                         </View>
                     ) : (
-                        <TouchableOpacity style={[styles.addVideoBtn, { borderColor }]} onPress={pickVideo}>
-                            <Ionicons name="videocam-outline" size={28} color="#8e8e93" />
-                            <Text style={styles.addVideoText}>{t('request.addVideo')}</Text>
+                        <TouchableOpacity style={[styles.addMediaBtn, styles.addVideoBtn, { borderColor }]} onPress={pickVideo}>
+                            <Ionicons name="videocam-outline" size={26} color={Palette.textSecondary} />
+                            <Text style={styles.addMediaText}>{t('request.addVideo')}</Text>
                         </TouchableOpacity>
                     )}
 
@@ -413,6 +398,7 @@ export default function RequestScreen() {
                         style={[styles.submitButton, submitting && { opacity: 0.6 }]}
                         onPress={handleSubmit}
                         disabled={submitting}
+                        activeOpacity={0.85}
                     >
                         {submitting ? (
                             <ActivityIndicator color="#fff" />
@@ -427,94 +413,110 @@ export default function RequestScreen() {
 }
 
 const styles = StyleSheet.create({
-    scroll: { padding: 20, paddingBottom: 40 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
-    headerTitle: { fontSize: 20, fontWeight: 'bold' },
-    sectionLabel: { fontSize: 14, fontWeight: '600', marginBottom: 8, marginTop: 16, textTransform: 'uppercase', letterSpacing: 0.5 },
-
-    // Trade chips
-    tradeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    scroll: {
+        paddingHorizontal: Spacing.lg,
+        paddingBottom: 40,
+    },
+    sectionLabel: {
+        ...Typography.caption,
+        fontWeight: '600',
+        marginBottom: Spacing.sm,
+        marginTop: Spacing.xl,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    chipScroll: {
+        gap: Spacing.sm,
+        paddingRight: Spacing.lg,
+    },
 
     // Issue tiles
-    issueTileScroll: { marginBottom: 4 },
     issueTile: {
-        paddingVertical: 8,
-        paddingHorizontal: 14,
-        borderRadius: 20,
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.md + 2,
+        borderRadius: Radius.full,
         borderWidth: 1.5,
-        marginRight: 8,
     },
-    issueTileText: { fontSize: 13, fontWeight: '600' },
-    tradeChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        borderWidth: 2,
-        gap: 6,
+    issueTileText: {
+        ...Typography.caption,
+        fontWeight: '600',
     },
-    tradeChipText: { fontWeight: '700', fontSize: 13 },
 
     // Inputs
-    input: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16 },
+    input: {
+        borderWidth: 1,
+        borderRadius: Radius.lg,
+        padding: Spacing.md + 2,
+        ...Typography.bodyLg,
+    },
     textArea: { minHeight: 100 },
 
     // Address suggestions
     suggestionsContainer: {
         borderWidth: 1,
         borderTopWidth: 0,
-        borderBottomLeftRadius: 12,
-        borderBottomRightRadius: 12,
+        borderBottomLeftRadius: Radius.lg,
+        borderBottomRightRadius: Radius.lg,
         overflow: 'hidden',
         marginTop: -4,
     },
     suggestionItem: {
         flexDirection: 'row' as const,
         alignItems: 'center' as const,
-        paddingVertical: 12,
-        paddingHorizontal: 14,
-        gap: 8,
+        paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.md + 2,
+        gap: Spacing.sm,
     },
     suggestionText: {
-        fontSize: 14,
+        ...Typography.bodySm,
         flex: 1,
-        lineHeight: 19,
     },
 
     // Photos
-    photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    photoThumb: { width: 80, height: 80, borderRadius: 10, overflow: 'hidden' },
+    photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
+    photoThumb: { width: 80, height: 80, borderRadius: Radius.default, overflow: 'hidden' },
     photoImage: { width: '100%', height: '100%' },
     photoRemove: { position: 'absolute', top: -2, right: -2 },
-    addPhotoBtn: {
-        width: 80, height: 80, borderRadius: 10, borderWidth: 1.5, borderStyle: 'dashed',
-        justifyContent: 'center', alignItems: 'center',
-    },
-    addPhotoText: { fontSize: 9, color: '#8e8e93', marginTop: 2, textAlign: 'center' },
-
-    // Video
-    videoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    videoAttached: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    videoAttachedText: { color: '#007AFF', fontWeight: '600', fontSize: 14 },
-    addVideoBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        padding: 14,
-        borderRadius: 12,
+    addMediaBtn: {
+        width: 80,
+        height: 80,
+        borderRadius: Radius.default,
         borderWidth: 1.5,
         borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 2,
     },
-    addVideoText: { color: '#8e8e93', fontSize: 14 },
+    addMediaText: {
+        ...Typography.caption,
+        color: Palette.textSecondary,
+        textAlign: 'center',
+    },
+
+    // Video
+    addVideoBtn: {
+        flexDirection: 'row',
+        width: 'auto',
+        height: 'auto',
+        paddingVertical: Spacing.md + 2,
+        paddingHorizontal: Spacing.lg,
+        gap: Spacing.sm,
+    },
+    videoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    videoAttached: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    videoAttachedText: { ...Typography.bodySm, color: Brand.primary, fontWeight: '600' },
 
     // Submit
     submitButton: {
-        backgroundColor: '#007AFF',
-        padding: 16,
-        borderRadius: 12,
+        backgroundColor: Brand.primary,
+        padding: Spacing.lg,
+        borderRadius: Radius.lg,
         alignItems: 'center',
-        marginTop: 28,
+        marginTop: Spacing.xl + Spacing.xs,
+        ...Elevation.medium,
     },
-    submitText: { color: '#fff', fontWeight: 'bold', fontSize: 17 },
+    submitText: {
+        color: '#fff',
+        ...Typography.button,
+    },
 });

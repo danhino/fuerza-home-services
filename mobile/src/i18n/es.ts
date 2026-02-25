@@ -173,9 +173,32 @@ const es = {
     'profile.theme.light': 'Claro',
     'profile.theme.dark': 'Oscuro',
 
+    // ── Homeowner Dashboard ──────────────────────────
+    'home.greeting.morning': 'Buenos Días',
+    'home.greeting.afternoon': 'Buenas Tardes',
+    'home.greeting.evening': 'Buenas Noches',
+    'home.categories': 'Categorías',
+    'home.nearbyPros': 'Profesionales Cerca',
+    'home.promo.title': '20% en Tu Primer Servicio',
+    'home.promo.description': '¡Reserva cualquier servicio hoy y ahorra!',
+    'home.promo.cta': 'Reservar',
+
+    // ── Role Selection ───────────────────────────────
+    'roleSelect.title': 'Bienvenido a Fuerza',
+    'roleSelect.subtitle': 'El mercado principal de servicios para el hogar. Selecciona cómo deseas usar la aplicación.',
+    'roleSelect.needService': 'Necesito un servicio',
+    'roleSelect.needServiceDesc': 'Encuentra plomeros, electricistas y profesionales de confianza para tu hogar.',
+    'roleSelect.provideService': 'Ofrezco un servicio',
+    'roleSelect.provideServiceDesc': 'Haz crecer tu negocio, conecta con propietarios y administra tus trabajos.',
+    'roleSelect.alreadyHaveAccount': '¿Ya tienes cuenta?',
+
+    // ── Earnings ─────────────────────────────────────
+    'earnings.comingSoon': 'Panel de ganancias próximamente',
+
     // ── Tabs ─────────────────────────────────────────
     'tabs.home': 'Inicio',
     'tabs.jobs': 'Trabajos',
+    'tabs.earnings': 'Ganancias',
     'tabs.profile': 'Perfil',
 };
 

@@ -172,9 +172,32 @@ const en = {
     'profile.theme.light': 'Light',
     'profile.theme.dark': 'Dark',
 
+    // ── Homeowner Dashboard ──────────────────────────
+    'home.greeting.morning': 'Good Morning',
+    'home.greeting.afternoon': 'Good Afternoon',
+    'home.greeting.evening': 'Good Evening',
+    'home.categories': 'Categories',
+    'home.nearbyPros': 'Nearby Pros',
+    'home.promo.title': '20% Off First Service',
+    'home.promo.description': 'Book any service today and save!',
+    'home.promo.cta': 'Book Now',
+
+    // ── Role Selection ───────────────────────────────
+    'roleSelect.title': 'Welcome to Fuerza',
+    'roleSelect.subtitle': 'The premier marketplace for home services. Select how you would like to use the app to get started.',
+    'roleSelect.needService': 'I need a service',
+    'roleSelect.needServiceDesc': 'Find trusted plumbers, electricians, and local pros for your home projects.',
+    'roleSelect.provideService': 'I provide a service',
+    'roleSelect.provideServiceDesc': 'Grow your business, connect with homeowners, and manage your jobs.',
+    'roleSelect.alreadyHaveAccount': 'Already have an account?',
+
+    // ── Earnings ─────────────────────────────────────
+    'earnings.comingSoon': 'Earnings dashboard coming soon',
+
     // ── Tabs ─────────────────────────────────────────
     'tabs.home': 'Home',
     'tabs.jobs': 'Jobs',
+    'tabs.earnings': 'Earnings',
     'tabs.profile': 'Profile',
 };
 

@@ -12,8 +12,22 @@ import { useAuthStore } from '../../src/store/useAuthStore';
 import { useJobStore, Job, ChangeOrder, ChangeOrderItem } from '../../src/store/useJobStore';
 import { useThemeColor } from '../../src/hooks/useThemeColor';
 import { t, useLanguageStore } from '../../src/i18n';
+import { ScreenHeader, StatusBadge } from '../../src/components/stitch_ui';
+import { Typography } from '../../src/constants/Typography';
+import { Spacing, Radius, Elevation } from '../../src/constants/Spacing';
+import { Brand, Palette } from '../../src/constants/Colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+    REQUESTED: 'info',
+    MATCHED: 'info',
+    EN_ROUTE: 'warning',
+    ARRIVED: 'warning',
+    WORKING: 'warning',
+    COMPLETED: 'success',
+    CANCELLED: 'danger',
+};
 
 export default function JobsScreen() {
     const router = useRouter();
@@ -160,6 +174,7 @@ export default function JobsScreen() {
                 <TextInput
                     style={styles.commentInput}
                     placeholder="Leave a comment (optional)"
+                    placeholderTextColor={Palette.textSecondary}
                     value={reviewComment}
                     onChangeText={setReviewComment}
                     multiline
@@ -302,7 +317,7 @@ export default function JobsScreen() {
                         onChangeText={setCustomTip}
                         placeholder="0.00"
                         keyboardType="numeric"
-                        placeholderTextColor="#999"
+                        placeholderTextColor={Palette.textSecondary}
                     />
                 )}
 
@@ -338,20 +353,20 @@ export default function JobsScreen() {
                 ) : (
                     <>
                         <View style={styles.cardHeader}>
-                            <Text style={[styles.jobTitle, { color: textColor }]}>{item.trade} - {item.status}</Text>
-                            {isSpanishCustomer && (
-                                <View style={styles.esBadge}>
-                                    <Text style={styles.esBadgeText}>{t('jobs.customerLanguage.badgeSpanish')}</Text>
-                                </View>
-                            )}
+                            <Text style={[styles.jobTitle, { color: textColor }]}>{item.trade}</Text>
+                            <View style={styles.badgeRow}>
+                                <StatusBadge label={item.status} variant={STATUS_VARIANT[item.status] || 'neutral'} />
+                                {isSpanishCustomer && (
+                                    <StatusBadge label={t('jobs.customerLanguage.badgeSpanish')} variant="warning" />
+                                )}
+                            </View>
                         </View>
 
                         {isTechnician && item.issueTag && (
-                            <View style={styles.issueTagBadge}>
-                                <Text style={styles.issueTagText}>
-                                    {t(`issue.${item.trade.toLowerCase()}.${item.issueTag}`) || item.issueTag}
-                                </Text>
-                            </View>
+                            <StatusBadge
+                                label={t(`issue.${item.trade.toLowerCase()}.${item.issueTag}`) || item.issueTag}
+                                variant="info"
+                            />
                         )}
                         <View style={styles.contentSection}>
                             <View style={styles.infoRow}>
@@ -388,9 +403,9 @@ export default function JobsScreen() {
                                     style={styles.videoIndicator}
                                     onPress={() => setSelectedVideo(item.videoUrl!)}
                                 >
-                                    <Ionicons name="videocam" size={16} color="#007AFF" />
+                                    <Ionicons name="videocam" size={16} color={Brand.primary} />
                                     <Text style={styles.videoIndicatorText}>{t('request.videoAvailable')}</Text>
-                                    <Ionicons name="open-outline" size={14} color="#007AFF" />
+                                    <Ionicons name="open-outline" size={14} color={Brand.primary} />
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -426,7 +441,10 @@ export default function JobsScreen() {
                                 {item.changeOrders.map((co) => (
                                     <View key={co.id} style={styles.coCard}>
                                         <View style={styles.coHeader}>
-                                            <Text style={styles.coStatus}>{co.status}</Text>
+                                            <StatusBadge
+                                                label={co.status}
+                                                variant={co.status === 'APPROVED' ? 'success' : co.status === 'DECLINED' ? 'danger' : 'warning'}
+                                            />
                                             <Text style={styles.coTotal}>${co.totalAmount.toFixed(2)}</Text>
                                         </View>
                                         {co.items.map((line, idx) => (
@@ -471,7 +489,7 @@ export default function JobsScreen() {
 
                         {isTechnician && isRequested && (
                             <TouchableOpacity style={styles.acceptButton} onPress={() => acceptJob(item.id)}>
-                                <Text style={styles.buttonText}>{t('jobs.acceptJob')}</Text>
+                                <Text style={styles.acceptButtonText}>{t('jobs.acceptJob')}</Text>
                             </TouchableOpacity>
                         )}
                     </>
@@ -482,6 +500,8 @@ export default function JobsScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor }]}>
+            <ScreenHeader title={t('jobs.title')} textColor={textColor} />
+
             {jobs.length === 0 ? (
                 <Text style={[styles.empty, { color: textColor }]}>{t('jobs.noJobs')}</Text>
             ) : (
@@ -489,6 +509,7 @@ export default function JobsScreen() {
                     data={jobs}
                     renderItem={renderItem}
                     keyExtractor={item => item.id}
+                    contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl }}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 />
             )}
@@ -541,7 +562,7 @@ export default function JobsScreen() {
                         <View style={styles.coModalHeader}>
                             <Text style={styles.coModalTitle}>New Change Order</Text>
                             <TouchableOpacity onPress={() => setCoModalVisible(false)}>
-                                <Ionicons name="close" size={24} color="#333" />
+                                <Ionicons name="close" size={24} color={Palette.textPrimary} />
                             </TouchableOpacity>
                         </View>
                         <ScrollView style={styles.coItemsList}>
@@ -551,12 +572,13 @@ export default function JobsScreen() {
                                         <Text style={styles.coItemIndex}>Item {index + 1}</Text>
                                         {index > 0 && (
                                             <TouchableOpacity onPress={() => removeCoItem(index)}>
-                                                <Ionicons name="trash-outline" size={20} color="red" />
+                                                <Ionicons name="trash-outline" size={20} color="#FF3B30" />
                                             </TouchableOpacity>
                                         )}
                                     </View>
                                     <TextInput
                                         placeholder="Description"
+                                        placeholderTextColor={Palette.textSecondary}
                                         style={styles.input}
                                         value={item.description}
                                         onChangeText={(text) => updateCoItem(index, 'description', text)}
@@ -565,13 +587,15 @@ export default function JobsScreen() {
                                         <TextInput
                                             placeholder="Qty"
                                             keyboardType="numeric"
-                                            style={[styles.input, { flex: 1, marginRight: 8 }]}
+                                            placeholderTextColor={Palette.textSecondary}
+                                            style={[styles.input, { flex: 1, marginRight: Spacing.sm }]}
                                             value={item.quantity.toString()}
                                             onChangeText={(text) => updateCoItem(index, 'quantity', parseInt(text) || 0)}
                                         />
                                         <TextInput
                                             placeholder="Price"
                                             keyboardType="numeric"
+                                            placeholderTextColor={Palette.textSecondary}
                                             style={[styles.input, { flex: 1 }]}
                                             value={item.unitPrice.toString()}
                                             onChangeText={(text) => updateCoItem(index, 'unitPrice', parseFloat(text) || 0)}
@@ -580,7 +604,7 @@ export default function JobsScreen() {
                                 </View>
                             ))}
                             <TouchableOpacity style={styles.addItemButton} onPress={addCoItem}>
-                                <Ionicons name="add" size={20} color="#007AFF" />
+                                <Ionicons name="add" size={20} color={Brand.primary} />
                                 <Text style={styles.addItemText}>Add Item</Text>
                             </TouchableOpacity>
                         </ScrollView>
@@ -597,251 +621,238 @@ export default function JobsScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20 },
-    card: { padding: 15, marginBottom: 15, borderRadius: 8, elevation: 2 },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-    jobTitle: { fontSize: 18, fontWeight: 'bold', flex: 1 },
-    acceptButton: { marginTop: 10, backgroundColor: '#34C759', padding: 10, borderRadius: 5, alignItems: 'center' },
-    buttonText: { color: 'white', fontWeight: 'bold' },
-    empty: { textAlign: 'center', marginTop: 50, fontSize: 16 },
-    esBadge: {
-        backgroundColor: '#FF9500',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 12,
-        marginLeft: 8,
+    container: { flex: 1 },
+    card: {
+        padding: Spacing.lg,
+        marginBottom: Spacing.md,
+        borderRadius: Radius.lg,
+        ...Elevation.medium,
     },
-    esBadgeText: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 11,
-        textTransform: 'uppercase',
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xs },
+    badgeRow: { flexDirection: 'row', gap: Spacing.xs },
+    jobTitle: { ...Typography.bodyLg, fontWeight: '700', flex: 1 },
+    acceptButton: {
+        marginTop: Spacing.md,
+        backgroundColor: '#34C759',
+        paddingVertical: Spacing.md,
+        borderRadius: Radius.lg,
+        alignItems: 'center',
+        ...Elevation.low,
     },
-    issueTagBadge: {
-        alignSelf: 'flex-start',
-        backgroundColor: '#E8F0FE',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-        marginTop: 6,
-    },
-    issueTagText: {
-        color: '#007AFF',
-        fontWeight: '600',
-        fontSize: 12,
-    },
+    acceptButtonText: { ...Typography.button, color: '#fff' },
+    buttonText: { ...Typography.bodySm, color: '#fff', fontWeight: '700' },
+    empty: { ...Typography.bodyLg, textAlign: 'center', marginTop: 50 },
+
+    // Content
+    contentSection: { marginTop: Spacing.sm, gap: Spacing.sm },
+    infoRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.xs },
+    label: { ...Typography.caption, fontWeight: '600', opacity: 0.7 },
+    value: { ...Typography.bodySm, fontWeight: '500' },
+    description: { ...Typography.bodySm, lineHeight: 20, marginTop: Spacing.xs },
+    photoList: { marginTop: Spacing.md, marginBottom: Spacing.xs },
+    jobPhoto: { width: 120, height: 120, borderRadius: Radius.default, marginRight: Spacing.sm, backgroundColor: '#f0f0f0' },
+
+    // Video indicator
     videoIndicator: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-        marginTop: 8,
+        gap: Spacing.xs,
+        marginTop: Spacing.sm,
         backgroundColor: '#E8F4FD',
         alignSelf: 'flex-start',
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 12,
+        paddingHorizontal: Spacing.sm + 2,
+        paddingVertical: Spacing.xs + 1,
+        borderRadius: Radius.full,
     },
-    videoIndicatorText: {
-        color: '#007AFF',
-        fontWeight: '600',
-        fontSize: 12,
-    },
-    contentSection: {
-        marginTop: 10,
-        gap: 8,
-    },
-    infoRow: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        gap: 6,
-    },
-    label: {
-        fontSize: 14,
-        fontWeight: '600',
-        opacity: 0.7,
-    },
-    value: {
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    description: {
-        fontSize: 15,
-        lineHeight: 20,
-        marginTop: 4,
-    },
-    photoList: {
-        marginTop: 12,
-        marginBottom: 4,
-    },
-    jobPhoto: {
-        width: 120,
-        height: 120,
-        borderRadius: 10,
-        marginRight: 10,
-        backgroundColor: '#f0f0f0',
-    },
+    videoIndicatorText: { ...Typography.caption, color: Brand.primary, fontWeight: '600' },
 
     // Full-screen modals
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.92)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalClose: {
-        position: 'absolute',
-        top: 50,
-        right: 20,
-        zIndex: 10,
-    },
-    modalImage: {
-        width: SCREEN_WIDTH - 40,
-        height: SCREEN_HEIGHT * 0.7,
-    },
-    videoModalContent: {
-        alignItems: 'center',
-        gap: 16,
-    },
-    videoModalText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
-    },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.92)', justifyContent: 'center', alignItems: 'center' },
+    modalClose: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
+    modalImage: { width: SCREEN_WIDTH - 40, height: SCREEN_HEIGHT * 0.7 },
+    videoModalContent: { alignItems: 'center', gap: Spacing.lg },
+    videoModalText: { ...Typography.bodyLg, color: '#fff', fontWeight: '600' },
     videoPlayButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        backgroundColor: '#007AFF',
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 24,
-        marginTop: 8,
+        gap: Spacing.sm,
+        backgroundColor: Brand.primary,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.md,
+        borderRadius: Radius.full,
+        marginTop: Spacing.sm,
     },
-    videoPlayText: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 16,
-    },
+    videoPlayText: { ...Typography.bodySm, color: '#fff', fontWeight: '700' },
 
     // Technician earnings breakdown
     earningsBox: {
-        marginTop: 12,
+        marginTop: Spacing.md,
         backgroundColor: '#E8F8EE',
-        borderRadius: 8,
-        padding: 12,
+        borderRadius: Radius.default,
+        padding: Spacing.md,
         borderLeftWidth: 3,
         borderLeftColor: '#34C759',
     },
-    earningsTitle: {
-        fontWeight: '700',
-        fontSize: 14,
-        color: '#1B5E20',
-        marginBottom: 8,
-    },
-    earningsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 4,
-    },
-    earningsLabel: {
-        fontSize: 13,
-        color: '#555',
-    },
-    earningsValue: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#333',
-    },
+    earningsTitle: { ...Typography.bodySm, fontWeight: '700', color: '#1B5E20', marginBottom: Spacing.sm },
+    earningsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs },
+    earningsLabel: { ...Typography.caption, color: Palette.textSecondary },
+    earningsValue: { ...Typography.caption, fontWeight: '600', color: Palette.textPrimary },
     earningsTotalRow: {
         borderTopWidth: 1,
         borderTopColor: '#C8E6C9',
-        paddingTop: 6,
-        marginTop: 4,
+        paddingTop: Spacing.xs + 2,
+        marginTop: Spacing.xs,
         marginBottom: 0,
     },
-    earningsTotalLabel: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#1B5E20',
-    },
-    earningsTotalValue: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#34C759',
-    },
+    earningsTotalLabel: { ...Typography.bodySm, fontWeight: '700', color: '#1B5E20' },
+    earningsTotalValue: { ...Typography.bodySm, fontWeight: '700', color: '#34C759' },
 
     // Change Order Styles
-    changeOrdersSection: { marginTop: 16, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 8 },
-    sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
-    coCard: { backgroundColor: '#f9f9f9', padding: 10, borderRadius: 6, marginBottom: 8, borderLeftWidth: 3, borderLeftColor: '#007AFF' },
-    coHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-    coStatus: { fontWeight: 'bold', fontSize: 12, textTransform: 'uppercase' },
-    coTotal: { fontWeight: 'bold' },
-    coItemText: { fontSize: 13, color: '#555' },
-    coActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
-    coButton: { flex: 1, padding: 8, borderRadius: 4, alignItems: 'center' },
+    changeOrdersSection: { marginTop: Spacing.lg, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: Spacing.sm },
+    sectionTitle: { ...Typography.bodySm, fontWeight: '700', marginBottom: Spacing.sm },
+    coCard: {
+        backgroundColor: '#f9f9f9',
+        padding: Spacing.sm + 2,
+        borderRadius: Radius.default,
+        marginBottom: Spacing.sm,
+        borderLeftWidth: 3,
+        borderLeftColor: Brand.primary,
+    },
+    coHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xs },
+    coTotal: { ...Typography.bodySm, fontWeight: '700' },
+    coItemText: { ...Typography.caption, color: Palette.textSecondary },
+    coActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
+    coButton: { flex: 1, paddingVertical: Spacing.sm, borderRadius: Radius.default, alignItems: 'center' },
     approveButton: { backgroundColor: '#34C759' },
     declineButton: { backgroundColor: '#FF3B30' },
-    coButtonText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
-    createCoButton: { backgroundColor: '#007AFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 8, marginTop: 12, gap: 8 },
+    coButtonText: { ...Typography.caption, color: '#fff', fontWeight: '700' },
+    createCoButton: {
+        backgroundColor: Brand.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: Spacing.md,
+        borderRadius: Radius.default,
+        marginTop: Spacing.md,
+        gap: Spacing.sm,
+    },
 
     // Modal Styles
-    coModalContent: { backgroundColor: 'white', width: '90%', maxHeight: '80%', borderRadius: 12, overflow: 'hidden' },
-    coModalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
-    coModalTitle: { fontSize: 18, fontWeight: 'bold' },
-    coItemsList: { padding: 16 },
-    coItemInputRow: { marginBottom: 16, padding: 10, backgroundColor: '#f5f5f5', borderRadius: 8 },
-    coItemHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    coItemIndex: { fontWeight: '600', color: '#666' },
-    input: { backgroundColor: 'white', padding: 10, borderRadius: 6, borderWidth: 1, borderColor: '#ddd', marginBottom: 8 },
+    coModalContent: { backgroundColor: '#fff', width: '90%', maxHeight: '80%', borderRadius: Radius.lg, overflow: 'hidden' },
+    coModalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: Spacing.lg, borderBottomWidth: 1, borderBottomColor: '#eee' },
+    coModalTitle: { ...Typography.displaySm, fontWeight: '700' },
+    coItemsList: { padding: Spacing.lg },
+    coItemInputRow: { marginBottom: Spacing.lg, padding: Spacing.sm + 2, backgroundColor: '#f5f5f5', borderRadius: Radius.default },
+    coItemHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm },
+    coItemIndex: { ...Typography.bodySm, fontWeight: '600', color: Palette.textSecondary },
+    input: { backgroundColor: '#fff', padding: Spacing.sm + 2, borderRadius: Radius.default, borderWidth: 1, borderColor: '#ddd', marginBottom: Spacing.sm },
     row: { flexDirection: 'row' },
-    addItemButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', padding: 10 },
-    addItemText: { color: '#007AFF', fontWeight: '600' },
-    coModalFooter: { padding: 16, borderTopWidth: 1, borderTopColor: '#eee' },
-    submitCoButton: { backgroundColor: '#007AFF', padding: 14, borderRadius: 8, alignItems: 'center' },
+    addItemButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', padding: Spacing.sm + 2 },
+    addItemText: { ...Typography.bodySm, color: Brand.primary, fontWeight: '600' },
+    coModalFooter: { padding: Spacing.lg, borderTopWidth: 1, borderTopColor: '#eee' },
+    submitCoButton: { backgroundColor: Brand.primary, paddingVertical: Spacing.md, borderRadius: Radius.default, alignItems: 'center' },
 
     // Invoice Styles
-    invoiceContainer: { padding: 10 },
-    invoiceTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
-    invoiceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    invoiceLabel: { fontSize: 14, color: '#555' },
-    invoiceValue: { fontSize: 14, fontWeight: '500' },
-    invoiceSubtotal: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 8, marginTop: 8 },
-    invoiceLabelBold: { fontSize: 16, fontWeight: 'bold' },
-    invoiceValueBold: { fontSize: 16, fontWeight: 'bold' },
-    tipSelector: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-    tipOption: { flex: 1, padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginHorizontal: 4, alignItems: 'center' },
-    tipOptionSelected: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
-    tipText: { color: '#333', fontWeight: 'bold' },
-    tipTextSelected: { color: 'white' },
-    customTipInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, textAlign: 'right', marginBottom: 12, fontSize: 16, fontWeight: 'bold' },
-    invoiceTotal: { marginTop: 16, paddingTop: 16, borderTopWidth: 2, borderTopColor: '#eee' },
-    invoiceTotalLabel: { fontSize: 18, fontWeight: 'bold' },
-    invoiceTotalValue: { fontSize: 22, fontWeight: 'bold', color: '#34C759' },
-    payButton: { backgroundColor: '#34C759', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24, elevation: 4 },
-    payButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+    invoiceContainer: { padding: Spacing.sm + 2 },
+    invoiceTitle: { ...Typography.displaySm, fontWeight: '700', marginBottom: Spacing.lg, textAlign: 'center' },
+    invoiceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm },
+    invoiceLabel: { ...Typography.bodySm, color: Palette.textSecondary },
+    invoiceValue: { ...Typography.bodySm, fontWeight: '500' },
+    invoiceSubtotal: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: Spacing.sm, marginTop: Spacing.sm },
+    invoiceLabelBold: { ...Typography.bodyLg, fontWeight: '700' },
+    invoiceValueBold: { ...Typography.bodyLg, fontWeight: '700' },
+    tipSelector: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.md },
+    tipOption: {
+        flex: 1,
+        paddingVertical: Spacing.sm + 2,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: Radius.default,
+        marginHorizontal: Spacing.xs,
+        alignItems: 'center',
+    },
+    tipOptionSelected: { backgroundColor: Brand.primary, borderColor: Brand.primary },
+    tipText: { ...Typography.bodySm, color: Palette.textPrimary, fontWeight: '700' },
+    tipTextSelected: { color: '#fff' },
+    customTipInput: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: Radius.default,
+        padding: Spacing.sm + 2,
+        textAlign: 'right',
+        marginBottom: Spacing.md,
+        ...Typography.bodyLg,
+        fontWeight: '700',
+    },
+    invoiceTotal: { marginTop: Spacing.lg, paddingTop: Spacing.lg, borderTopWidth: 2, borderTopColor: '#eee' },
+    invoiceTotalLabel: { ...Typography.displaySm, fontWeight: '700' },
+    invoiceTotalValue: { ...Typography.displayLg, color: '#34C759' },
+    payButton: {
+        backgroundColor: '#34C759',
+        paddingVertical: Spacing.lg,
+        borderRadius: Radius.lg,
+        alignItems: 'center',
+        marginTop: Spacing.xl,
+        ...Elevation.medium,
+    },
+    payButtonText: { ...Typography.button, color: '#fff' },
 
     // Review Styles
-    reviewContainer: { padding: 10 },
-    reviewTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 16 },
-    starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 20 },
-    tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-    tagChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#ddd' },
-    tagChipSelected: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
-    tagText: { color: '#333' },
-    tagTextSelected: { color: 'white', fontWeight: 'bold' },
-    commentInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, height: 80, textAlignVertical: 'top', marginBottom: 16 },
-    submitReviewButton: { backgroundColor: '#007AFF', padding: 14, borderRadius: 8, alignItems: 'center' },
+    reviewContainer: { padding: Spacing.sm + 2 },
+    reviewTitle: { ...Typography.displaySm, fontWeight: '700', textAlign: 'center', marginBottom: Spacing.lg },
+    starsRow: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.sm, marginBottom: Spacing.xl },
+    tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.lg },
+    tagChip: {
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs + 2,
+        borderRadius: Radius.full,
+        backgroundColor: '#f0f0f0',
+        borderWidth: 1,
+        borderColor: '#ddd',
+    },
+    tagChipSelected: { backgroundColor: Brand.primary, borderColor: Brand.primary },
+    tagText: { ...Typography.bodySm, color: Palette.textPrimary },
+    tagTextSelected: { color: '#fff', fontWeight: '700' },
+    commentInput: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: Radius.default,
+        padding: Spacing.sm + 2,
+        height: 80,
+        textAlignVertical: 'top',
+        marginBottom: Spacing.lg,
+        ...Typography.bodySm,
+    },
+    submitReviewButton: {
+        backgroundColor: Brand.primary,
+        paddingVertical: Spacing.md,
+        borderRadius: Radius.default,
+        alignItems: 'center',
+    },
 
     // Receipt Styles
-    receiptContainer: { padding: 16, alignItems: 'center' },
-    receiptHeader: { alignItems: 'center', marginBottom: 16 },
-    receiptTitle: { fontSize: 28, fontWeight: 'bold', marginTop: 8 },
-    receiptTotal: { fontSize: 32, fontWeight: 'bold', color: '#333', marginBottom: 16 },
-    receiptRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 8 },
-    receiptLabel: { color: '#666', fontSize: 16 },
-    receiptValue: { fontWeight: '600', fontSize: 16 },
-    reviewSummary: { marginTop: 24, width: '100%', backgroundColor: '#f9f9f9', padding: 16, borderRadius: 8 },
-    reviewSummaryTitle: { fontWeight: 'bold', marginBottom: 8 },
-    reviewComment: { fontStyle: 'italic', color: '#555', marginTop: 8 },
+    receiptContainer: { padding: Spacing.lg, alignItems: 'center' },
+    receiptHeader: { alignItems: 'center', marginBottom: Spacing.lg },
+    receiptTitle: { ...Typography.displayLg, fontWeight: '700', marginTop: Spacing.sm },
+    receiptTotal: { ...Typography.displayLg, fontWeight: '700', color: Palette.textPrimary, marginBottom: Spacing.lg, fontSize: 32 },
+    receiptRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginBottom: Spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        paddingBottom: Spacing.sm,
+    },
+    receiptLabel: { ...Typography.bodyLg, color: Palette.textSecondary },
+    receiptValue: { ...Typography.bodyLg, fontWeight: '600' },
+    reviewSummary: {
+        marginTop: Spacing.xl,
+        width: '100%',
+        backgroundColor: '#f9f9f9',
+        padding: Spacing.lg,
+        borderRadius: Radius.default,
+    },
+    reviewSummaryTitle: { ...Typography.bodySm, fontWeight: '700', marginBottom: Spacing.sm },
+    reviewComment: { ...Typography.bodySm, fontStyle: 'italic', color: Palette.textSecondary, marginTop: Spacing.sm },
 });
