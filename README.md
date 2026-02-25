@@ -73,9 +73,18 @@ fuerza-home-services/
 │   ├── app/
 │   │   ├── (auth)/             # Login & Register screens
 │   │   └── (tabs)/             # Home, Jobs, Profile, Request screens
+│   │       └── index.tsx       # Role-based dashboard switch
 │   └── src/
-│       ├── components/         # Reusable UI components
-│       ├── constants/          # Config (API URL, Socket URL)
+│       ├── components/
+│       │   └── stitch_ui/      # Stitch-designed UI components
+│       │       ├── HomeownerDashboard.tsx      # Customer home (Stitch 13fe14c8)
+│       │       ├── TechnicianMainDashboard.tsx # Tech home (Stitch b151d673)
+│       │       ├── GreetingHeader.tsx          # Shared greeting bar
+│       │       ├── CategoryChip.tsx            # Trade category pill
+│       │       ├── ProCard.tsx                 # Professional card
+│       │       ├── PromoBanner.tsx             # Promotional banner
+│       │       └── index.ts                   # Barrel exports
+│       ├── constants/          # Design tokens (Colors, Typography, Spacing)
 │       ├── hooks/              # Theme color hooks
 │       ├── i18n/               # Translation files (en.ts, es.ts) + Zustand language store
 │       ├── services/           # Axios API client, Socket client
@@ -176,3 +185,49 @@ npm run dev                            # Starts on :5173
 ## 📄 License
 
 This project is for internal/private use.
+
+---
+
+## 🧭 Dashboard Architecture (Stitch Integrated)
+
+The home tab renders a role-specific dashboard designed in [Google Stitch](https://stitch.google.com/) and translated into React Native components.
+
+### 1. Customer Dashboard
+
+| Property | Value |
+|----------|-------|
+| **Stitch Screen ID** | `13fe14c8311a438ca41a388dbfc71ae7` |
+| **Label** | Homeowner Dashboard |
+| **Dimensions** | 390 × 1134 (mobile) |
+| **Route** | `app/(tabs)/index.tsx` (role-based rendering) |
+| **Component** | `mobile/src/components/stitch_ui/HomeownerDashboard.tsx` |
+
+**Description:** Primary landing experience for authenticated customers. Displays greeting header, service categories, featured professionals, and quick access to create a service request.
+
+<p align="center">
+  <img src="docs/screenshots/customer_dashboard.png" alt="Customer Dashboard" width="300" />
+</p>
+### 2. Technician Dashboard
+
+| Property | Value |
+|----------|-------|
+| **Stitch Screen ID** | `b151d67385da435280585ba51c0914bd` |
+| **Label** | Professional Technician Main Dashboard |
+| **Dimensions** | 390 × 944 (mobile) |
+| **Route** | `app/(tabs)/index.tsx` (role-based rendering) |
+| **Component** | `mobile/src/components/stitch_ui/TechnicianMainDashboard.tsx` |
+
+**Description:** Primary landing experience for authenticated technicians. Displays job queue overview, service map access, earnings snapshot, and profile shortcuts.
+
+<p align="center">
+  <img src="docs/screenshots/technician_dashboard.png" alt="Technician Dashboard" width="300" />
+</p>
+
+### Role-Based Home Tab Behavior
+
+Expo Router's `(tabs)/index.tsx` serves as the **shared Home tab** for all authenticated users. At render time it reads `user.role` from `useAuthStore` and conditionally renders one of two Stitch-designed dashboard components:
+
+- **`TECHNICIAN`** → renders `<TechnicianMainDashboard />`
+- **`CUSTOMER` / `BOTH`** → renders `<HomeownerDashboard />`
+
+No additional tab routes were created to preserve Expo Router structure stability. Both dashboards are pure presentational components — all data and callbacks are passed as props from `index.tsx`.
