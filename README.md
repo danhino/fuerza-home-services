@@ -1,22 +1,30 @@
 # Fuerza Home Services
 
-**Fuerza Home Services** is an on-demand home services platform that connects customers with skilled technicians (plumbers, electricians, pool techs, cleaning) in real time. Think of it as an Uber-style experience for home repairs — customers request help, nearby technicians accept the job, and everything is tracked live on a map. Fully bilingual (English / Spanish).
+**Fuerza Home Services** is an on-demand home services platform that connects customers with skilled technicians (plumbers, electricians, HVAC techs, pool service pros) in real time. Think of it as an Uber-style experience for home repairs — customers request help, nearby technicians accept the job, and everything is tracked live on a map. Fully bilingual (English / Spanish).
 
 ---
 
 ## ✨ Features
 
 ### 📱 Mobile App (Customer)
-- **Map-first experience** — see your location and nearby online technicians in real time
-- **Trade filters** — filter map markers by trade (Plumber, Electrician, Pool, Cleaning) with color-coded pins
-- **Service request form** — select a trade, enter address, describe the issue, and attach up to 5 photos
-- **Photo auto-compression** — photos are resized (800px) and compressed (0.6 quality) on-device before upload
+- **Map-first home screen** — Uber-style dashboard with full-screen MapView, trade-colored technician pins, floating header with address pill, and a pulsing online-count indicator
+- **Trade filter chips** — horizontal chip bar to filter by trade (All, Plumbing, Electrical, HVAC, Pool) with color-coded map pins (blue, yellow, purple, teal)
+- **Technician callouts** — tap a map pin to see technician name, trade, and star rating
+- **Multi-step service request wizard** — 4-step checkout flow with animated progress bar:
+  1. Select Trade (2-column card grid with icons + descriptions)
+  2. Describe Issue (multiline text + photo picker with auto-compression)
+  3. Service Address (input + reverse geocode + static map preview)
+  4. Review & Get Estimate → fee breakdown → Confirm & Book
+- **AI-powered triage** — preliminary estimate screen powered by backend triage engine
+- **Photo auto-compression** — photos resized (800px) and compressed (0.6 quality) on-device before upload
 - **Live job tracking** — watch your technician's location update on the map via WebSocket
-- **Job history** — view all past and active service requests
+- **Job history** — view all past and active service requests with status pills
+- **Post-payment features** — leave reviews and view receipts after job completion
 
 ### 🔧 Mobile App (Technician)
 - **Go online / offline toggle** — control your availability
 - **Real-time job alerts** — receive new job requests instantly via Socket.io
+- **Earnings display** — see estimated earnings on job cards before accepting
 - **Spanish-speaker notifications** — get an alert when a Spanish-speaking customer creates a job, plus an "ES" badge on the job card
 - **Rich job details** — see customer name, address, description, and a scrollable photo gallery before accepting
 - **Accept & manage jobs** — view open requests and accept them with one tap
@@ -29,8 +37,13 @@
 - **Delete users** — remove users with cascading cleanup of linked profiles
 - **System stats** — at-a-glance cards for total users, technicians, and customers
 
+### 🎨 Design System
+- **Production design tokens** — `Colors.ts` (50+ semantic tokens per theme, light/dark), `Typography.ts` (18 pre-composed styles), `Spacing.ts` (spacing scale, radii, shadows, z-index), `Theme.ts` (unified typed theme object)
+- **10 reusable UI primitives** — `Button`, `TextInput`, `Card`, `Badge`, `Avatar`, `Divider`, `BottomSheet`, `StatusPill`, `SectionHeader`, `LoadingOverlay`
+- **Theme hooks** — `useTheme()` for unified theme access, `useThemeColor()` for individual token access
+
 ### 🌐 Internationalization (i18n)
-- **English / Spanish** — full UI localization across all screens
+- **English / Spanish** — full UI localization across all screens (~240+ keys per language)
 - **Language toggle** — switch languages on Login or Profile screens (🇺🇸 / 🇪🇸)
 - **Persistence** — language saved locally (AsyncStorage) and synced to backend (`preferredLanguage` on User)
 - **Technician awareness** — Spanish-speaking customer badge + alert for technicians
@@ -44,9 +57,15 @@
 
 ### ⚡ Real-Time
 - Socket.io powered WebSocket connections
-- Live technician location tracking (with trade info)
-- Instant job status updates (Requested → Matched → En Route → Completed)
+- Live technician location tracking (with trade info, name, rating)
+- Instant job status updates (Requested → Matched → En Route → Arrived → Working → Completed)
 - New job alerts for technicians with Spanish-speaker detection
+
+### 💳 Payments & Post-Job
+- Payment processing service integration
+- Receipt generation and email stub
+- Customer review system (star rating + comments)
+- Change order workflow for price adjustments
 
 ---
 
@@ -62,33 +81,76 @@ fuerza-home-services/
 │   │   ├── reset-admin-password.ts  # Reset admin password
 │   │   └── user-stats.ts       # Print user statistics
 │   └── src/
-│       ├── controllers/        # Route handlers (auth, admin, jobs)
+│       ├── controllers/        # Route handlers
+│       │   ├── auth.controller.ts
+│       │   ├── admin.controller.ts
+│       │   ├── job.controller.ts
+│       │   ├── triage.controller.ts
+│       │   ├── review.controller.ts
+│       │   ├── receipt.controller.ts
+│       │   ├── changeOrder.controller.ts
+│       │   └── user.controller.ts
 │       ├── middleware/          # Auth + Admin middleware
 │       ├── routes/             # Express route definitions
-│       ├── services/           # Socket.io service
+│       ├── services/           # Socket.io, Payment, Email services
 │       ├── utils/              # Password hashing, JWT helpers
 │       └── server.ts           # App entry point
 │
 ├── mobile/                     # React Native (Expo) iOS/Android app
 │   ├── app/
 │   │   ├── (auth)/             # Login & Register screens
-│   │   └── (tabs)/             # Home, Jobs, Profile, Request screens
-│   │       └── index.tsx       # Role-based dashboard switch
+│   │   ├── (tabs)/             # Tab screens
+│   │   │   ├── index.tsx       # Role-based dashboard switch
+│   │   │   ├── request.tsx     # Multi-step service request wizard
+│   │   │   ├── jobs.tsx        # Job list & tracking
+│   │   │   ├── earnings.tsx    # Earnings dashboard (coming soon)
+│   │   │   └── profile.tsx     # User profile & settings
+│   │   ├── triage.tsx          # AI triage / preliminary estimate screen
+│   │   └── estimate.tsx        # Detailed estimate view
 │   └── src/
 │       ├── components/
-│       │   └── stitch_ui/      # Stitch-designed UI components
-│       │       ├── HomeownerDashboard.tsx      # Customer home (Stitch 13fe14c8)
-│       │       ├── TechnicianMainDashboard.tsx # Tech home (Stitch b151d673)
-│       │       ├── GreetingHeader.tsx          # Shared greeting bar
-│       │       ├── CategoryChip.tsx            # Trade category pill
-│       │       ├── ProCard.tsx                 # Professional card
-│       │       ├── PromoBanner.tsx             # Promotional banner
-│       │       └── index.ts                   # Barrel exports
-│       ├── constants/          # Design tokens (Colors, Typography, Spacing)
-│       ├── hooks/              # Theme color hooks
-│       ├── i18n/               # Translation files (en.ts, es.ts) + Zustand language store
+│       │   ├── ui/             # Reusable UI primitives (10 components)
+│       │   │   ├── Button.tsx          # 4 variants, 3 sizes, loading state
+│       │   │   ├── TextInput.tsx       # Label, error, focus ring, icon slots
+│       │   │   ├── Card.tsx            # Surface card with shadow
+│       │   │   ├── Badge.tsx           # 6 variants, 2 sizes
+│       │   │   ├── Avatar.tsx          # Image + initials fallback
+│       │   │   ├── Divider.tsx         # Hairline + optional label
+│       │   │   ├── BottomSheet.tsx     # Drag-to-dismiss modal
+│       │   │   ├── StatusPill.tsx      # 7 job statuses with icons
+│       │   │   ├── SectionHeader.tsx   # Title + "See all" link
+│       │   │   ├── LoadingOverlay.tsx  # Full-screen spinner
+│       │   │   └── index.ts           # Barrel exports
+│       │   └── stitch_ui/     # Stitch-designed layout components
+│       │       ├── HomeownerDashboard.tsx   # Map-first customer home
+│       │       ├── TechnicianMainDashboard.tsx
+│       │       ├── GreetingHeader.tsx
+│       │       ├── CategoryChip.tsx
+│       │       ├── ProCard.tsx
+│       │       ├── PromoBanner.tsx
+│       │       ├── RoleCard.tsx
+│       │       ├── ScreenHeader.tsx
+│       │       ├── StatusBadge.tsx
+│       │       └── index.ts
+│       ├── constants/          # Design tokens
+│       │   ├── Colors.ts       # 50+ semantic tokens, light/dark themes
+│       │   ├── Typography.ts   # 18 pre-composed text styles
+│       │   ├── Spacing.ts      # Scale, radii, shadows, z-index
+│       │   ├── Theme.ts        # Unified typed theme object
+│       │   └── Config.ts       # API URL configuration
+│       ├── hooks/
+│       │   ├── useTheme.ts     # Unified theme hook
+│       │   └── useThemeColor.ts
+│       ├── i18n/               # Translation files (en.ts, es.ts) + language store
 │       ├── services/           # Axios API client, Socket client
-│       └── store/              # Zustand stores (Auth, Location, Jobs, Map)
+│       └── store/              # Zustand stores
+│           ├── useAuthStore.ts
+│           ├── useJobStore.ts
+│           ├── useLocationStore.ts
+│           ├── useMapStore.ts      # Technician pins, trade filters
+│           ├── useTechnicianStore.ts
+│           ├── useThemeStore.ts
+│           └── useTriageStore.ts
 │
 └── web/                        # React (Vite) Admin Dashboard
     └── src/
@@ -112,6 +174,7 @@ fuerza-home-services/
 | **Database** | PostgreSQL + Prisma ORM                           |
 | **Auth**     | JWT (jsonwebtoken) + bcryptjs                     |
 | **Admin Web**| React, Vite, TypeScript, Zustand, Lucide Icons    |
+| **Design**   | Custom token system (Colors, Typography, Spacing, Theme) |
 
 ---
 
@@ -159,17 +222,21 @@ npm run dev                            # Starts on :5173
 ### Customer Flow
 1. **Register** as a Customer (email + phone)
 2. **Choose Language** — toggle 🇺🇸/🇪🇸 on Login or Profile
-3. **Home Screen** — view your location and nearby online technicians on the map
-4. **Filter Technicians** — tap the filter button to show/hide trades (Plumber, Electrician, Pool, Cleaning)
-5. **Request Service** — tap "Request a Service", select trade, enter address, describe issue, attach photos
+3. **Home Screen** — view your location and nearby online technicians on the map with trade-colored pins
+4. **Filter Technicians** — use the horizontal chip bar to filter by trade (Plumbing, Electrical, HVAC, Pool)
+5. **Request Service** — tap "Request a Service" → multi-step wizard:
+   - Step 1: Pick a trade from the 2-column card grid
+   - Step 2: Describe the problem + attach up to 5 photos
+   - Step 3: Enter or auto-detect your service address
+   - Step 4: Review summary → get instant estimate → Confirm & Book
 6. **Track Job** — watch technician location in real time after they accept
-7. **Job Complete** — review final status in the Jobs tab
+7. **Job Complete** — leave a review, view receipt
 
 ### Technician Flow
 1. **Register** as a Technician (toggle switch on registration)
 2. **Go Online** — toggle availability on the Home Screen
 3. **Receive Jobs** — new requests appear in the Jobs tab instantly (with Spanish-speaker alert if applicable)
-4. **Review Details** — see customer name, address, description, photos, and language badge before accepting
+4. **Review Details** — see customer name, address, description, photos, estimated earnings, and language badge before accepting
 5. **Accept & Work** — tap "Accept Job" to claim a request
 6. **Status Updates** — progress through: Matched → En Route → Arrived → Working → Completed
 
@@ -182,52 +249,47 @@ npm run dev                            # Starts on :5173
 
 ---
 
-## 📄 License
+## 🧭 Dashboard Architecture
 
-This project is for internal/private use.
+The home tab (`app/(tabs)/index.tsx`) renders a role-specific dashboard.
 
----
-
-## 🧭 Dashboard Architecture (Stitch Integrated)
-
-The home tab renders a role-specific dashboard designed in [Google Stitch](https://stitch.google.com/) and translated into React Native components.
-
-### 1. Customer Dashboard
+### Customer Dashboard — Map-First
 
 | Property | Value |
 |----------|-------|
-| **Stitch Screen ID** | `13fe14c8311a438ca41a388dbfc71ae7` |
-| **Label** | Homeowner Dashboard |
-| **Dimensions** | 390 × 1134 (mobile) |
-| **Route** | `app/(tabs)/index.tsx` (role-based rendering) |
 | **Component** | `mobile/src/components/stitch_ui/HomeownerDashboard.tsx` |
+| **Route** | `app/(tabs)/index.tsx` (role-based rendering) |
+| **Architecture** | Self-contained, hooks into stores directly |
 
-**Description:** Primary landing experience for authenticated customers. Displays greeting header, service categories, featured professionals, and quick access to create a service request.
+**Layout:** 5 absolute-positioned layers stacked on `MapView`:
 
-<p align="center">
-  <img src="docs/screenshots/customer_dashboard.png" alt="Customer Dashboard" width="300" />
-</p>
-### 2. Technician Dashboard
+| Layer | Content |
+|-------|---------|
+| 0 | Full-screen MapView with user location + trade-colored technician pins |
+| 1 | Floating header: "Fuerza" wordmark + address pill + user avatar |
+| 2 | Horizontal trade filter chips (All / Plumbing / Electrical / HVAC / Pool) |
+| 3 | Bottom panel: pulsing online count + 4 category quick-cards + orange CTA |
+| 4 | Recenter FAB |
+
+### Technician Dashboard
 
 | Property | Value |
 |----------|-------|
 | **Stitch Screen ID** | `b151d67385da435280585ba51c0914bd` |
-| **Label** | Professional Technician Main Dashboard |
-| **Dimensions** | 390 × 944 (mobile) |
-| **Route** | `app/(tabs)/index.tsx` (role-based rendering) |
 | **Component** | `mobile/src/components/stitch_ui/TechnicianMainDashboard.tsx` |
+| **Route** | `app/(tabs)/index.tsx` (role-based rendering) |
 
-**Description:** Primary landing experience for authenticated technicians. Displays job queue overview, service map access, earnings snapshot, and profile shortcuts.
-
-<p align="center">
-  <img src="docs/screenshots/technician_dashboard.png" alt="Technician Dashboard" width="300" />
-</p>
+**Description:** Primary landing experience for authenticated technicians. Displays next job card, upcoming schedule, and service shortcuts.
 
 ### Role-Based Home Tab Behavior
 
-Expo Router's `(tabs)/index.tsx` serves as the **shared Home tab** for all authenticated users. At render time it reads `user.role` from `useAuthStore` and conditionally renders one of two Stitch-designed dashboard components:
+Expo Router's `(tabs)/index.tsx` reads `user.role` from `useAuthStore` and conditionally renders:
 
-- **`TECHNICIAN`** → renders `<TechnicianMainDashboard />`
-- **`CUSTOMER` / `BOTH`** → renders `<HomeownerDashboard />`
+- **`TECHNICIAN`** → `<TechnicianMainDashboard />` (receives props from index.tsx)
+- **`CUSTOMER` / default** → `<HomeownerDashboard />` (self-contained, no props needed)
 
-No additional tab routes were created to preserve Expo Router structure stability. Both dashboards are pure presentational components — all data and callbacks are passed as props from `index.tsx`.
+---
+
+## 📄 License
+
+This project is for internal/private use.
