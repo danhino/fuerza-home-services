@@ -1,33 +1,40 @@
 import { create } from 'zustand';
 import { socketService } from '../services/socket.service';
 
-interface TechnicianLocation {
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+export type TradeFilter = 'ALL' | 'PLUMBER' | 'ELECTRICIAN' | 'HVAC' | 'POOL';
+
+export interface TechnicianLocation {
     techId: string;
+    name: string;
     lat: number;
     lng: number;
-    trade?: string;
+    trade: string;
+    rating: number;
+    isOnline: boolean;
 }
-
-type TradeFilter = 'PLUMBER' | 'ELECTRICIAN' | 'POOL' | 'CLEANING';
 
 interface MapState {
     technicianLocations: Record<string, TechnicianLocation>;
-    tradeFilters: Record<TradeFilter, boolean>;
+    selectedTrade: TradeFilter;
+    setSelectedTrade: (trade: TradeFilter) => void;
     updateTechnicianLocation: (data: TechnicianLocation) => void;
-    toggleTradeFilter: (trade: TradeFilter) => void;
+    removeTechnician: (techId: string) => void;
     getFilteredLocations: () => TechnicianLocation[];
+    getOnlineCount: () => number;
     initializeSocketListeners: () => void;
     cleanupSocketListeners: () => void;
 }
 
+// ─── Store ───────────────────────────────────────────────────────────────────
+
 export const useMapStore = create<MapState>((set, get) => ({
     technicianLocations: {},
-    tradeFilters: {
-        PLUMBER: true,
-        ELECTRICIAN: true,
-        POOL: true,
-        CLEANING: true,
-    },
+    selectedTrade: 'ALL',
+
+    setSelectedTrade: (trade) => set({ selectedTrade: trade }),
+
     updateTechnicianLocation: (data) => {
         set((state) => ({
             technicianLocations: {
@@ -36,27 +43,37 @@ export const useMapStore = create<MapState>((set, get) => ({
             },
         }));
     },
-    toggleTradeFilter: (trade) => {
-        set((state) => ({
-            tradeFilters: {
-                ...state.tradeFilters,
-                [trade]: !state.tradeFilters[trade],
-            },
-        }));
-    },
-    getFilteredLocations: () => {
-        const { technicianLocations, tradeFilters } = get();
-        return Object.values(technicianLocations).filter((tech) => {
-            if (!tech.trade) return true; // Show if trade unknown
-            return tradeFilters[tech.trade as TradeFilter] ?? true;
+
+    removeTechnician: (techId) => {
+        set((state) => {
+            const { [techId]: _, ...rest } = state.technicianLocations;
+            return { technicianLocations: rest };
         });
     },
+
+    getFilteredLocations: () => {
+        const { technicianLocations, selectedTrade } = get();
+        const all = Object.values(technicianLocations).filter((t) => t.isOnline);
+        if (selectedTrade === 'ALL') return all;
+        return all.filter((t) => t.trade === selectedTrade);
+    },
+
+    getOnlineCount: () => {
+        const { technicianLocations } = get();
+        return Object.values(technicianLocations).filter((t) => t.isOnline).length;
+    },
+
     initializeSocketListeners: () => {
         socketService.on('technician:moved', (data: TechnicianLocation) => {
             get().updateTechnicianLocation(data);
         });
+        socketService.on('technician:offline', (data: { techId: string }) => {
+            get().removeTechnician(data.techId);
+        });
     },
+
     cleanupSocketListeners: () => {
         socketService.off('technician:moved');
-    }
+        socketService.off('technician:offline');
+    },
 }));

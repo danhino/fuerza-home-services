@@ -2,10 +2,10 @@
  * app/(tabs)/index.tsx — Home Tab
  *
  * Thin role-switch: reads user.role from useAuthStore and renders
- * the appropriate Stitch dashboard component.
+ * the appropriate dashboard component.
  *
  *   TECHNICIAN  → <TechnicianMainDashboard />  (Stitch b151d673)
- *   else        → <HomeownerDashboard />        (Stitch 13fe14c8)
+ *   else        → <HomeownerDashboard />        (Map-first customer home)
  */
 
 import React from 'react';
@@ -14,11 +14,7 @@ import { useRouter } from 'expo-router';
 import { useThemeColor } from '../../src/hooks/useThemeColor';
 import { t, useLanguageStore } from '../../src/i18n';
 
-import {
-    HomeownerDashboard,
-    TradeMeta,
-    TradeKey,
-} from '../../src/components/stitch_ui/HomeownerDashboard';
+import { HomeownerDashboard } from '../../src/components/stitch_ui/HomeownerDashboard';
 
 import {
     TechnicianMainDashboard,
@@ -42,21 +38,6 @@ function getDateSubtitle(): string {
         day: 'numeric',
     });
 }
-
-// ── Customer constants ────────────────────────────────────
-
-const TRADES: TradeMeta[] = [
-    { key: 'PLUMBER', icon: 'water', color: '#007AFF', label: 'Plumbing' },
-    { key: 'ELECTRICIAN', icon: 'flash', color: '#FF9500', label: 'Electrical' },
-    { key: 'POOL', icon: 'water-outline', color: '#5AC8FA', label: 'Pool Service' },
-    { key: 'CLEANING', icon: 'sparkles', color: '#34C759', label: 'Cleaning' },
-];
-
-const NEARBY_PROS = [
-    { name: 'Marco Rossi', specialty: 'Master Plumber', rating: 4.9, color: '#007AFF' },
-    { name: 'Sarah Chen', specialty: 'Certified Electrician', rating: 4.8, color: '#FF9500' },
-    { name: 'David Miller', specialty: 'HVAC Specialist', rating: 4.7, color: '#5AC8FA' },
-];
 
 // ── Technician mock data (replace with API later) ────────
 
@@ -105,24 +86,7 @@ export default function HomeScreen() {
         );
     }
 
-    // ── Customer (Homeowner) ──────────────────────────────
-    return (
-        <HomeownerDashboard
-            greeting={getGreeting()}
-            userName={user?.firstName || user?.name || ''}
-            textColor={textColor}
-            backgroundColor={backgroundColor}
-            cardColor={cardColor}
-            trades={TRADES}
-            categoriesLabel={t('home.categories') || 'Categories'}
-            nearbyPros={NEARBY_PROS}
-            nearbyProsLabel={t('home.nearbyPros') || 'Nearby Pros'}
-            promoTitle={t('home.promo.title') || 'Save 15% on First Task'}
-            promoDescription={t('home.promo.description') || 'Book your first cleaning or repair service today!'}
-            promoCta={t('home.promo.cta') || 'Book Now'}
-            onPromoPress={() => router.push('/(tabs)/request')}
-            requestServiceLabel={t('home.requestServiceBtn') || 'Request a Service'}
-            onRequestService={() => router.push('/(tabs)/request')}
-        />
-    );
+    // ── Customer (Homeowner) — self-contained map dashboard
+    return <HomeownerDashboard />;
 }
+

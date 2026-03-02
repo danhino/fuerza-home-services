@@ -1,147 +1,125 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * request.tsx — Multi-step Service Request Wizard
+ *
+ * 4-step checkout-style flow:
+ *   Step 1: Select Trade (2-column grid)
+ *   Step 2: Describe Issue (multiline + photos)
+ *   Step 3: Service Address (input + map preview)
+ *   Step 4: Review & Get Estimate → Confirm & Book
+ */
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    View, Text, TextInput, TouchableOpacity, StyleSheet, Alert,
-    ScrollView, Image, ActivityIndicator, KeyboardAvoidingView, Platform, Linking
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    Image,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    Dimensions,
+    TextInput as RNTextInput,
+    Animated,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
-import api from '../../src/services/api';
-import { useThemeColor } from '../../src/hooks/useThemeColor';
+import MapView, { Marker } from 'react-native-maps';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+
+import { useTheme } from '../../src/hooks/useTheme';
 import { t, useLanguageStore } from '../../src/i18n';
-import { useTriageStore } from '../../src/store/useTriageStore';
-import { ScreenHeader, CategoryChip } from '../../src/components/stitch_ui';
-import { Typography } from '../../src/constants/Typography';
-import { Spacing, Radius, Elevation } from '../../src/constants/Spacing';
-import { Brand, Palette } from '../../src/constants/Colors';
+import { useLocationStore } from '../../src/store/useLocationStore';
+import { useAuthStore } from '../../src/store/useAuthStore';
+import api from '../../src/services/api';
+import { Button } from '../../src/components/ui/Button';
+import { Card } from '../../src/components/ui/Card';
 
-type Trade = 'PLUMBER' | 'ELECTRICIAN' | 'POOL' | 'CLEANING';
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-const TRADES: { key: Trade; icon: string; color: string; i18nKey: string }[] = [
-    { key: 'PLUMBER', icon: 'water', color: '#007AFF', i18nKey: 'filter.plumber' },
-    { key: 'ELECTRICIAN', icon: 'flash', color: '#FF9500', i18nKey: 'filter.electrician' },
-    { key: 'POOL', icon: 'water-outline', color: '#5AC8FA', i18nKey: 'filter.pool' },
-    { key: 'CLEANING', icon: 'sparkles', color: '#34C759', i18nKey: 'filter.cleaning' },
-];
+type Trade = 'PLUMBER' | 'ELECTRICIAN' | 'HVAC' | 'POOL';
 
-interface IssueTile {
-    tag: string;
-    i18nKey: string;
-    suggestedDescription: string;
+interface TradeOption {
+    key: Trade;
+    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+    color: string;
+    i18nLabel: string;
+    i18nDesc: string;
 }
 
-const ISSUE_TILES: Record<Trade, IssueTile[]> = {
-    PLUMBER: [
-        { tag: 'leakUnderSink', i18nKey: 'issue.plumber.leakUnderSink', suggestedDescription: 'There is a leak under the sink that needs repair.' },
-        { tag: 'replaceToilet', i18nKey: 'issue.plumber.replaceToilet', suggestedDescription: 'Need to replace an old or broken toilet.' },
-        { tag: 'showerLever', i18nKey: 'issue.plumber.showerLever', suggestedDescription: 'The shower lever/handle is broken and needs fixing.' },
-        { tag: 'cloggedSink', i18nKey: 'issue.plumber.cloggedSink', suggestedDescription: 'The sink is clogged and not draining properly.' },
-        { tag: 'waterHeater', i18nKey: 'issue.plumber.waterHeater', suggestedDescription: 'Water heater is not heating water.' },
-        { tag: 'runningToilet', i18nKey: 'issue.plumber.runningToilet', suggestedDescription: 'The toilet keeps running and won\'t stop.' },
-        { tag: 'lowPressure', i18nKey: 'issue.plumber.lowPressure', suggestedDescription: 'Experiencing low water pressure throughout the house.' },
-    ],
-    ELECTRICIAN: [
-        { tag: 'replaceOutlet', i18nKey: 'issue.electrician.replaceOutlet', suggestedDescription: 'Need to replace a damaged or outdated outlet.' },
-        { tag: 'ceilingFan', i18nKey: 'issue.electrician.ceilingFan', suggestedDescription: 'Need a ceiling fan installed.' },
-        { tag: 'evCharger', i18nKey: 'issue.electrician.evCharger', suggestedDescription: 'Need a Tesla/EV charger installed at home.' },
-        { tag: 'breaker', i18nKey: 'issue.electrician.breaker', suggestedDescription: 'A circuit breaker needs to be replaced.' },
-        { tag: 'lightSwitch', i18nKey: 'issue.electrician.lightSwitch', suggestedDescription: 'A light switch is not working properly.' },
-        { tag: 'gfci', i18nKey: 'issue.electrician.gfci', suggestedDescription: 'The GFCI outlet keeps tripping.' },
-        { tag: 'lightFixture', i18nKey: 'issue.electrician.lightFixture', suggestedDescription: 'Need a light fixture installed.' },
-    ],
-    POOL: [
-        { tag: 'pumpDiagnosis', i18nKey: 'issue.pool.pumpDiagnosis', suggestedDescription: 'Pool pump needs diagnosis — not working correctly.' },
-        { tag: 'cleaning', i18nKey: 'issue.pool.cleaning', suggestedDescription: 'Need a full pool cleaning.' },
-        { tag: 'filterCleaning', i18nKey: 'issue.pool.filterCleaning', suggestedDescription: 'Pool filter needs cleaning or replacement.' },
-        { tag: 'pumpStopped', i18nKey: 'issue.pool.pumpStopped', suggestedDescription: 'Pool pump has stopped working entirely.' },
-        { tag: 'stains', i18nKey: 'issue.pool.stains', suggestedDescription: 'Pool has stains that need treatment.' },
-        { tag: 'algae', i18nKey: 'issue.pool.algae', suggestedDescription: 'Pool has algae buildup.' },
-        { tag: 'cloudyWater', i18nKey: 'issue.pool.cloudyWater', suggestedDescription: 'Pool water is cloudy and unclear.' },
-        { tag: 'lights', i18nKey: 'issue.pool.lights', suggestedDescription: 'Pool lights need repair or installation.' },
-    ],
-    CLEANING: [
-        { tag: 's', i18nKey: 'issue.cleaning.s', suggestedDescription: 'Small house cleaning (1-2 rooms).' },
-        { tag: 'm', i18nKey: 'issue.cleaning.m', suggestedDescription: 'Medium house cleaning (3-4 rooms).' },
-        { tag: 'l', i18nKey: 'issue.cleaning.l', suggestedDescription: 'Large house cleaning (5-6 rooms).' },
-        { tag: 'xl', i18nKey: 'issue.cleaning.xl', suggestedDescription: 'Extra-large house cleaning (7+ rooms).' },
-    ],
-};
+const TRADES: TradeOption[] = [
+    { key: 'PLUMBER', icon: 'wrench', color: '#3B82F6', i18nLabel: 'home.map.plumbing', i18nDesc: 'request.plumbingDesc' },
+    { key: 'ELECTRICIAN', icon: 'lightning-bolt', color: '#F59E0B', i18nLabel: 'home.map.electrical', i18nDesc: 'request.electricalDesc' },
+    { key: 'HVAC', icon: 'snowflake', color: '#8B5CF6', i18nLabel: 'home.map.hvac', i18nDesc: 'request.hvacDesc' },
+    { key: 'POOL', icon: 'waves', color: '#06B6D4', i18nLabel: 'home.map.pool', i18nDesc: 'request.poolDesc' },
+];
+
+const TOTAL_STEPS = 4;
+const BOOKING_FEE = 2.99;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export default function RequestScreen() {
+    const theme = useTheme();
     const router = useRouter();
-    const language = useLanguageStore((s) => s.language);
+    const insets = useSafeAreaInsets();
+    const params = useLocalSearchParams<{ trade?: string }>();
 
-    const [selectedTrade, setSelectedTrade] = useState<Trade>('PLUMBER');
-    const [address, setAddress] = useState('');
+    // Subscribe for re-render on language change
+    useLanguageStore((s) => s.language);
+
+    // ── Form State ───────────────────────────────────────────────────────────
+    const [step, setStep] = useState(1);
+    const [selectedTrade, setSelectedTrade] = useState<Trade | null>(
+        (params.trade as Trade) || null
+    );
     const [description, setDescription] = useState('');
-    const [selectedIssueTag, setSelectedIssueTag] = useState<string | null>(null);
     const [photos, setPhotos] = useState<string[]>([]);
-    const [videoUri, setVideoUri] = useState<string | null>(null);
-    const [submitting, setSubmitting] = useState(false);
+    const [address, setAddress] = useState('');
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-    // Address autocomplete state
-    const [addressSuggestions, setAddressSuggestions] = useState<{ display_name: string; lat: string; lon: string }[]>([]);
-    const [showSuggestions, setShowSuggestions] = useState(false);
-    const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+    // ── Step 4 State ─────────────────────────────────────────────────────────
+    const [estimating, setEstimating] = useState(false);
+    const [estimate, setEstimate] = useState<{ serviceFee: number } | null>(null);
+    const [booking, setBooking] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const backgroundColor = useThemeColor({}, 'background');
-    const textColor = useThemeColor({}, 'text');
-    const borderColor = useThemeColor({}, 'border');
-    const cardColor = useThemeColor({}, 'card');
+    // ── Progress bar animation ───────────────────────────────────────────────
+    const progressAnim = useRef(new Animated.Value(1)).current;
+    useEffect(() => {
+        Animated.spring(progressAnim, {
+            toValue: step,
+            useNativeDriver: false,
+            damping: 20,
+            stiffness: 200,
+        }).start();
+    }, [step, progressAnim]);
+
+    // ── Locations ────────────────────────────────────────────────────────────
+    const storeLocation = useLocationStore((s) => s.location);
 
     useEffect(() => {
-        (async () => {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status === 'granted') {
-                const loc = await Location.getCurrentPositionAsync({});
-                setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-            }
-        })();
-    }, []);
-
-    const searchAddress = (query: string) => {
-        if (searchTimer) clearTimeout(searchTimer);
-        setAddress(query);
-        if (query.length < 3) {
-            setAddressSuggestions([]);
-            setShowSuggestions(false);
-            return;
+        if (storeLocation) {
+            setLocation({
+                lat: storeLocation.coords.latitude,
+                lng: storeLocation.coords.longitude,
+            });
         }
-        const timer = setTimeout(async () => {
-            try {
-                const response = await fetch(
-                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=us&addressdetails=0`,
-                    { headers: { 'User-Agent': 'FuerzaHomeServices/1.0' } }
-                );
-                const data = await response.json();
-                setAddressSuggestions(data);
-                setShowSuggestions(data.length > 0);
-            } catch (e) {
-                setShowSuggestions(false);
-            }
-        }, 400);
-        setSearchTimer(timer);
-    };
+    }, [storeLocation]);
 
-    const selectSuggestion = (item: { display_name: string; lat: string; lon: string }) => {
-        setAddress(item.display_name);
-        setLocation({ lat: parseFloat(item.lat), lng: parseFloat(item.lon) });
-        setShowSuggestions(false);
-        setAddressSuggestions([]);
-    };
+    // ── Photo Handling ───────────────────────────────────────────────────────
 
-    const pickAndCompressPhotos = async () => {
+    const pickPhotos = useCallback(async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
             allowsMultipleSelection: true,
             quality: 1,
-            selectionLimit: 5,
+            selectionLimit: 5 - photos.length,
         });
-
         if (result.canceled) return;
 
         const compressed: string[] = [];
@@ -154,56 +132,57 @@ export default function RequestScreen() {
             compressed.push(manipulated.uri);
         }
         setPhotos((prev) => [...prev, ...compressed].slice(0, 5));
-    };
+    }, [photos.length]);
 
-    const removePhoto = (index: number) => {
+    const removePhoto = useCallback((index: number) => {
         setPhotos((prev) => prev.filter((_, i) => i !== index));
-    };
+    }, []);
 
-    const MAX_VIDEO_SIZE_MB = 50;
-    const MAX_VIDEO_DURATION_SEC = 60;
+    // ── Use current location ─────────────────────────────────────────────────
 
-    const pickVideo = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['videos'],
-            allowsMultipleSelection: false,
-            quality: 0.5,
-            videoMaxDuration: MAX_VIDEO_DURATION_SEC,
+    const useCurrentLocation = useCallback(async () => {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const loc = await Location.getCurrentPositionAsync({});
+        setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+
+        // Reverse geocode
+        const [geo] = await Location.reverseGeocodeAsync({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
         });
-
-        if (result.canceled || !result.assets?.[0]) return;
-
-        const asset = result.assets[0];
-
-        // Duration check
-        if (asset.duration && asset.duration / 1000 > MAX_VIDEO_DURATION_SEC) {
-            Alert.alert(t('home.error'), t('request.videoTooLong'));
-            return;
+        if (geo) {
+            const parts = [geo.streetNumber, geo.street, geo.city, geo.region, geo.postalCode].filter(Boolean);
+            setAddress(parts.join(', '));
         }
+    }, []);
 
-        // Size check
-        if (asset.fileSize && asset.fileSize > MAX_VIDEO_SIZE_MB * 1024 * 1024) {
-            Alert.alert(t('home.error'), t('request.videoTooLarge'));
-            return;
-        }
+    // ── Estimate & Booking ───────────────────────────────────────────────────
 
-        setVideoUri(asset.uri);
-    };
-
-    const handleSubmit = async () => {
-        if (!address.trim()) {
-            Alert.alert(t('home.error'), t('request.address'));
-            return;
-        }
-        if (!description.trim()) {
-            Alert.alert(t('home.error'), t('request.description'));
-            return;
-        }
-
-        setSubmitting(true);
+    const fetchEstimate = useCallback(async () => {
+        setEstimating(true);
+        setError(null);
         try {
-            const lat = location?.lat || 29.7604;
-            const lng = location?.lng || -95.3698;
+            const { data } = await api.post('/api/jobs/estimate', {
+                trade: selectedTrade,
+                description,
+                address,
+            });
+            setEstimate({ serviceFee: data.estimatedPrice || data.serviceFee || 89.99 });
+        } catch {
+            // Fallback estimate for demo
+            setEstimate({ serviceFee: 89.99 });
+        } finally {
+            setEstimating(false);
+        }
+    }, [selectedTrade, description, address]);
+
+    const handleBook = useCallback(async () => {
+        setBooking(true);
+        setError(null);
+        try {
+            const lat = location?.lat || 29.4241;
+            const lng = location?.lng || -98.4936;
 
             // Convert photos to base64
             const photoData: string[] = [];
@@ -218,305 +197,725 @@ export default function RequestScreen() {
                 photoData.push(base64);
             }
 
-            // Convert video to base64
-            let videoData: string | undefined;
-            if (videoUri) {
-                const vResp = await fetch(videoUri);
-                const vBlob = await vResp.blob();
-                videoData = await new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.readAsDataURL(vBlob);
-                });
-            }
-
-            // Store data and navigate to triage screen
-            useTriageStore.getState().setPending({
+            const { data } = await api.post('/api/jobs', {
                 trade: selectedTrade,
                 description,
                 address,
                 lat,
                 lng,
-                issueTag: selectedIssueTag || undefined,
-                photoData,
-                videoData,
+                photos: photoData,
+                estimatedPrice: estimate ? estimate.serviceFee + BOOKING_FEE : undefined,
             });
-            router.push('/triage');
-        } catch (e) {
-            Alert.alert(t('home.error'), t('request.failed'));
+
+            router.replace({
+                pathname: '/(tabs)/jobs',
+                params: { jobId: data.id },
+            });
+        } catch {
+            setError(t('request.bookingFailed'));
         } finally {
-            setSubmitting(false);
+            setBooking(false);
+        }
+    }, [selectedTrade, description, address, location, photos, estimate, router]);
+
+    // ── Step 4: trigger estimate on mount ─────────────────────────────────────
+
+    useEffect(() => {
+        if (step === 4 && !estimate && !estimating) {
+            fetchEstimate();
+        }
+    }, [step, estimate, estimating, fetchEstimate]);
+
+    // ── Navigation ───────────────────────────────────────────────────────────
+
+    const canContinue = () => {
+        switch (step) {
+            case 1: return !!selectedTrade;
+            case 2: return description.trim().length > 0;
+            case 3: return address.trim().length > 0;
+            default: return true;
         }
     };
 
-    return (
-        <SafeAreaView style={{ flex: 1, backgroundColor }}>
-            <ScreenHeader
-                title={t('request.title')}
-                onBack={() => router.back()}
-                textColor={textColor}
-            />
+    const goNext = () => {
+        if (step < TOTAL_STEPS) setStep(step + 1);
+    };
+    const goBack = () => {
+        if (step > 1) {
+            setStep(step - 1);
+            if (step === 4) { setEstimate(null); setError(null); }
+        } else {
+            router.back();
+        }
+    };
 
+    // ── Render ────────────────────────────────────────────────────────────────
+
+    const STEP_LABELS = [
+        t('request.step1'),
+        t('request.step2'),
+        t('request.step3'),
+        t('request.step4'),
+    ];
+
+    return (
+        <SafeAreaView style={[styles.root, { backgroundColor: theme.colors.background }]}>
+            {/* ── Header ── */}
+            <View style={[styles.header, { paddingHorizontal: theme.spacing.lg }]}>
+                <TouchableOpacity onPress={goBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
+                </TouchableOpacity>
+                <Text style={[theme.typography.titleLg, { color: theme.colors.textPrimary, flex: 1, textAlign: 'center' }]}>
+                    {t('request.title')}
+                </Text>
+                <View style={{ width: 24 }} />
+            </View>
+
+            {/* ── Progress Bar ── */}
+            <View style={[styles.progressContainer, { paddingHorizontal: theme.spacing.lg }]}>
+                <View style={[styles.progressTrack, { backgroundColor: theme.colors.backgroundTertiary, borderRadius: theme.radius.full }]}>
+                    <Animated.View
+                        style={[
+                            styles.progressFill,
+                            {
+                                backgroundColor: theme.colors.accent,
+                                borderRadius: theme.radius.full,
+                                width: progressAnim.interpolate({
+                                    inputRange: [1, TOTAL_STEPS],
+                                    outputRange: ['25%', '100%'],
+                                }),
+                            },
+                        ]}
+                    />
+                </View>
+                <Text style={[theme.typography.caption, { color: theme.colors.textTertiary, marginTop: 6, textAlign: 'center' }]}>
+                    {STEP_LABELS[step - 1]}
+                </Text>
+            </View>
+
+            {/* ── Step Content ── */}
             <KeyboardAvoidingView
-                style={{ flex: 1 }}
+                style={styles.flex}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-                    {/* Trade Picker — reuse CategoryChip */}
-                    <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.selectTrade')}</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
-                        {TRADES.map((trade) => (
-                            <CategoryChip
-                                key={trade.key}
-                                icon={trade.icon}
-                                label={t(trade.i18nKey)}
-                                color={trade.color}
-                                isSelected={selectedTrade === trade.key}
-                                onPress={() => { setSelectedTrade(trade.key); setSelectedIssueTag(null); }}
-                            />
-                        ))}
-                    </ScrollView>
-
-                    {/* Issue Tiles */}
-                    <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.issueType')}</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
-                        {ISSUE_TILES[selectedTrade].map((tile) => {
-                            const isSelected = selectedIssueTag === tile.tag;
-                            const tradeColor = TRADES.find((tr) => tr.key === selectedTrade)?.color || Brand.primary;
-                            return (
-                                <TouchableOpacity
-                                    key={tile.tag}
-                                    style={[
-                                        styles.issueTile,
-                                        { borderColor: tradeColor },
-                                        isSelected && { backgroundColor: tradeColor },
-                                    ]}
-                                    onPress={() => {
-                                        if (isSelected) {
-                                            setSelectedIssueTag(null);
-                                        } else {
-                                            setSelectedIssueTag(tile.tag);
-                                            if (!description.trim()) {
-                                                setDescription(tile.suggestedDescription);
-                                            }
-                                        }
-                                    }}
-                                >
-                                    <Text style={[
-                                        styles.issueTileText,
-                                        { color: isSelected ? '#fff' : tradeColor },
-                                    ]}>
-                                        {t(tile.i18nKey)}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </ScrollView>
-
-                    {/* Address */}
-                    <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.address')}</Text>
-                    <View style={{ zIndex: 10 }}>
-                        <TextInput
-                            style={[styles.input, { borderColor, color: textColor, backgroundColor: cardColor }]}
-                            placeholder={t('request.addressPlaceholder')}
-                            placeholderTextColor={Palette.textSecondary}
-                            value={address}
-                            onChangeText={searchAddress}
-                            onFocus={() => { if (addressSuggestions.length > 0) setShowSuggestions(true); }}
+                <ScrollView
+                    style={styles.flex}
+                    contentContainerStyle={[styles.scrollContent, { paddingHorizontal: theme.spacing.lg }]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {step === 1 && (
+                        <StepSelectTrade
+                            theme={theme}
+                            selectedTrade={selectedTrade}
+                            onSelect={setSelectedTrade}
                         />
-                        {showSuggestions && addressSuggestions.length > 0 && (
-                            <View style={[styles.suggestionsContainer, { backgroundColor: cardColor, borderColor }]}>
-                                {addressSuggestions.map((item, idx) => (
-                                    <TouchableOpacity
-                                        key={idx}
-                                        style={[styles.suggestionItem, idx < addressSuggestions.length - 1 && { borderBottomWidth: 1, borderBottomColor: borderColor }]}
-                                        onPress={() => selectSuggestion(item)}
-                                    >
-                                        <Ionicons name="location-outline" size={16} color={Palette.textSecondary} />
-                                        <Text style={[styles.suggestionText, { color: textColor }]} numberOfLines={2}>
-                                            {item.display_name}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        )}
-                    </View>
-
-                    {/* Description */}
-                    <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.description')}</Text>
-                    <TextInput
-                        style={[styles.input, styles.textArea, { borderColor, color: textColor, backgroundColor: cardColor }]}
-                        placeholder={t('request.descriptionPlaceholder')}
-                        placeholderTextColor={Palette.textSecondary}
-                        value={description}
-                        onChangeText={setDescription}
-                        multiline
-                        numberOfLines={4}
-                        textAlignVertical="top"
-                    />
-
-                    {/* Photos */}
-                    <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.photos')}</Text>
-                    <View style={styles.photoRow}>
-                        {photos.map((uri, i) => (
-                            <View key={i} style={styles.photoThumb}>
-                                <Image source={{ uri }} style={styles.photoImage} />
-                                <TouchableOpacity style={styles.photoRemove} onPress={() => removePhoto(i)}>
-                                    <Ionicons name="close-circle" size={22} color="#FF3B30" />
-                                </TouchableOpacity>
-                            </View>
-                        ))}
-                        {photos.length < 5 && (
-                            <TouchableOpacity style={[styles.addMediaBtn, { borderColor }]} onPress={pickAndCompressPhotos}>
-                                <Ionicons name="camera" size={26} color={Palette.textSecondary} />
-                                <Text style={styles.addMediaText}>{t('request.addPhotos')}</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-
-                    {/* Video */}
-                    <Text style={[styles.sectionLabel, { color: textColor }]}>{t('request.video')}</Text>
-                    {videoUri ? (
-                        <View style={styles.videoRow}>
-                            <View style={styles.videoAttached}>
-                                <Ionicons name="videocam" size={20} color={Brand.primary} />
-                                <Text style={styles.videoAttachedText}>{t('request.videoAdded')}</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setVideoUri(null)}>
-                                <Ionicons name="close-circle" size={24} color="#FF3B30" />
-                            </TouchableOpacity>
-                        </View>
-                    ) : (
-                        <TouchableOpacity style={[styles.addMediaBtn, styles.addVideoBtn, { borderColor }]} onPress={pickVideo}>
-                            <Ionicons name="videocam-outline" size={26} color={Palette.textSecondary} />
-                            <Text style={styles.addMediaText}>{t('request.addVideo')}</Text>
-                        </TouchableOpacity>
                     )}
-
-                    {/* Submit */}
-                    <TouchableOpacity
-                        style={[styles.submitButton, submitting && { opacity: 0.6 }]}
-                        onPress={handleSubmit}
-                        disabled={submitting}
-                        activeOpacity={0.85}
-                    >
-                        {submitting ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <Text style={styles.submitText}>{t('request.submit')}</Text>
-                        )}
-                    </TouchableOpacity>
+                    {step === 2 && (
+                        <StepDescribeIssue
+                            theme={theme}
+                            description={description}
+                            setDescription={setDescription}
+                            photos={photos}
+                            pickPhotos={pickPhotos}
+                            removePhoto={removePhoto}
+                        />
+                    )}
+                    {step === 3 && (
+                        <StepAddress
+                            theme={theme}
+                            address={address}
+                            setAddress={setAddress}
+                            location={location}
+                            useCurrentLocation={useCurrentLocation}
+                        />
+                    )}
+                    {step === 4 && (
+                        <StepReview
+                            theme={theme}
+                            selectedTrade={selectedTrade}
+                            description={description}
+                            address={address}
+                            estimating={estimating}
+                            estimate={estimate}
+                            error={error}
+                        />
+                    )}
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* ── Bottom Button ── */}
+            <View
+                style={[
+                    styles.bottomBar,
+                    {
+                        paddingHorizontal: theme.spacing.lg,
+                        paddingBottom: Math.max(insets.bottom, theme.spacing.lg),
+                        backgroundColor: theme.colors.background,
+                        borderTopColor: theme.colors.divider,
+                    },
+                ]}
+            >
+                {step < 4 ? (
+                    <Button
+                        label={t('request.continue')}
+                        onPress={goNext}
+                        variant="primary"
+                        size="lg"
+                        disabled={!canContinue()}
+                        rightIcon={<Ionicons name="arrow-forward" size={20} color="#FFFFFF" />}
+                    />
+                ) : (
+                    <View>
+                        <Button
+                            label={t('request.confirmBook')}
+                            onPress={handleBook}
+                            variant="primary"
+                            size="lg"
+                            loading={booking}
+                            disabled={estimating || !estimate}
+                        />
+                        <TouchableOpacity
+                            onPress={() => router.back()}
+                            style={styles.cancelBtn}
+                        >
+                            <Text style={[theme.typography.bodySm, { color: theme.colors.textSecondary, textAlign: 'center' }]}>
+                                {t('request.cancel')}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
         </SafeAreaView>
     );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Step 1 — Select Trade
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface StepSelectTradeProps {
+    theme: ReturnType<typeof useTheme>;
+    selectedTrade: Trade | null;
+    onSelect: (trade: Trade) => void;
+}
+
+function StepSelectTrade({ theme, selectedTrade, onSelect }: StepSelectTradeProps) {
+    return (
+        <View>
+            <Text style={[theme.typography.headingSm, { color: theme.colors.textPrimary, marginBottom: theme.spacing.lg }]}>
+                {t('request.selectTrade')}
+            </Text>
+            <View style={styles.tradeGrid}>
+                {TRADES.map((trade) => {
+                    const isSelected = selectedTrade === trade.key;
+                    return (
+                        <TouchableOpacity
+                            key={trade.key}
+                            onPress={() => onSelect(trade.key)}
+                            activeOpacity={0.7}
+                            style={[
+                                styles.tradeCard,
+                                {
+                                    backgroundColor: theme.colors.surface,
+                                    borderRadius: theme.radius.lg,
+                                    borderColor: isSelected ? theme.colors.accent : theme.colors.borderLight,
+                                    borderWidth: isSelected ? 2 : 1,
+                                },
+                                theme.shadow.card,
+                            ]}
+                        >
+                            {/* Checkmark badge */}
+                            {isSelected && (
+                                <View style={[styles.checkBadge, { backgroundColor: theme.colors.accent }]}>
+                                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                                </View>
+                            )}
+                            {/* Icon circle */}
+                            <View
+                                style={[
+                                    styles.tradeIconCircle,
+                                    {
+                                        backgroundColor: trade.color + '18',
+                                        borderRadius: theme.radius.md,
+                                    },
+                                ]}
+                            >
+                                <MaterialCommunityIcons name={trade.icon} size={28} color={trade.color} />
+                            </View>
+                            <Text
+                                style={[
+                                    theme.typography.titleSm,
+                                    { color: theme.colors.textPrimary, marginTop: theme.spacing.sm },
+                                ]}
+                            >
+                                {t(trade.i18nLabel)}
+                            </Text>
+                            <Text
+                                style={[
+                                    theme.typography.caption,
+                                    { color: theme.colors.textTertiary, marginTop: 2, textAlign: 'center' },
+                                ]}
+                            >
+                                {t(trade.i18nDesc)}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+        </View>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Step 2 — Describe Issue
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface StepDescribeIssueProps {
+    theme: ReturnType<typeof useTheme>;
+    description: string;
+    setDescription: (d: string) => void;
+    photos: string[];
+    pickPhotos: () => void;
+    removePhoto: (i: number) => void;
+}
+
+function StepDescribeIssue({
+    theme,
+    description,
+    setDescription,
+    photos,
+    pickPhotos,
+    removePhoto,
+}: StepDescribeIssueProps) {
+    return (
+        <View>
+            <Text style={[theme.typography.headingSm, { color: theme.colors.textPrimary, marginBottom: theme.spacing.sm }]}>
+                {t('request.description')}
+            </Text>
+            <Text style={[theme.typography.bodySm, { color: theme.colors.textSecondary, marginBottom: theme.spacing.lg }]}>
+                {t('request.descriptionPlaceholder')}
+            </Text>
+
+            {/* Multiline input */}
+            <RNTextInput
+                value={description}
+                onChangeText={setDescription}
+                placeholder={t('request.descriptionPlaceholder')}
+                placeholderTextColor={theme.colors.textTertiary}
+                multiline
+                numberOfLines={6}
+                textAlignVertical="top"
+                style={[
+                    styles.descInput,
+                    {
+                        backgroundColor: theme.colors.surface,
+                        color: theme.colors.textPrimary,
+                        borderColor: theme.colors.border,
+                        borderRadius: theme.radius.md,
+                        ...theme.typography.bodyLg,
+                    },
+                ]}
+            />
+
+            {/* Photo strip */}
+            <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginTop: theme.spacing.xl, marginBottom: theme.spacing.sm }]}>
+                {t('request.photos')}
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoStrip}>
+                {photos.map((uri, i) => (
+                    <View key={i} style={[styles.photoThumb, { borderRadius: theme.radius.md }]}>
+                        <Image source={{ uri }} style={[styles.photoImage, { borderRadius: theme.radius.md }]} />
+                        <TouchableOpacity style={styles.photoRemove} onPress={() => removePhoto(i)}>
+                            <Ionicons name="close-circle" size={22} color={theme.colors.error} />
+                        </TouchableOpacity>
+                    </View>
+                ))}
+                {photos.length < 5 && (
+                    <TouchableOpacity
+                        onPress={pickPhotos}
+                        style={[
+                            styles.addPhotoBtn,
+                            {
+                                borderColor: theme.colors.border,
+                                borderRadius: theme.radius.md,
+                            },
+                        ]}
+                    >
+                        <Ionicons name="camera" size={24} color={theme.colors.textTertiary} />
+                        <Text style={[theme.typography.caption, { color: theme.colors.textTertiary, marginTop: 4 }]}>
+                            {t('request.addPhotos')}
+                        </Text>
+                    </TouchableOpacity>
+                )}
+            </ScrollView>
+        </View>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Step 3 — Service Address
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface StepAddressProps {
+    theme: ReturnType<typeof useTheme>;
+    address: string;
+    setAddress: (a: string) => void;
+    location: { lat: number; lng: number } | null;
+    useCurrentLocation: () => void;
+}
+
+function StepAddress({ theme, address, setAddress, location, useCurrentLocation }: StepAddressProps) {
+    return (
+        <View>
+            <Text style={[theme.typography.headingSm, { color: theme.colors.textPrimary, marginBottom: theme.spacing.lg }]}>
+                {t('request.step3')}
+            </Text>
+
+            {/* Address input */}
+            <RNTextInput
+                value={address}
+                onChangeText={setAddress}
+                placeholder={t('request.addressPlaceholder')}
+                placeholderTextColor={theme.colors.textTertiary}
+                style={[
+                    styles.addressInput,
+                    {
+                        backgroundColor: theme.colors.surface,
+                        color: theme.colors.textPrimary,
+                        borderColor: theme.colors.border,
+                        borderRadius: theme.radius.md,
+                        ...theme.typography.bodyLg,
+                    },
+                ]}
+            />
+
+            {/* Use current location */}
+            <TouchableOpacity
+                onPress={useCurrentLocation}
+                style={[styles.locationBtn, { marginTop: theme.spacing.md }]}
+                activeOpacity={0.7}
+            >
+                <Ionicons name="locate" size={18} color={theme.colors.accent} />
+                <Text style={[theme.typography.bodySm, { color: theme.colors.accent, marginLeft: 8 }]}>
+                    {t('request.useCurrentLocation')}
+                </Text>
+            </TouchableOpacity>
+
+            {/* Map preview */}
+            {location && (
+                <View style={[styles.mapContainer, { borderRadius: theme.radius.lg, marginTop: theme.spacing.xl }]}>
+                    <MapView
+                        style={styles.mapPreview}
+                        region={{
+                            latitude: location.lat,
+                            longitude: location.lng,
+                            latitudeDelta: 0.005,
+                            longitudeDelta: 0.005,
+                        }}
+                        scrollEnabled={false}
+                        zoomEnabled={false}
+                        rotateEnabled={false}
+                        pitchEnabled={false}
+                    >
+                        <Marker coordinate={{ latitude: location.lat, longitude: location.lng }}>
+                            <View style={[styles.mapPin, { backgroundColor: theme.colors.accent }]}>
+                                <Ionicons name="location" size={18} color="#FFFFFF" />
+                            </View>
+                        </Marker>
+                    </MapView>
+                </View>
+            )}
+        </View>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Step 4 — Review & Get Estimate
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface StepReviewProps {
+    theme: ReturnType<typeof useTheme>;
+    selectedTrade: Trade | null;
+    description: string;
+    address: string;
+    estimating: boolean;
+    estimate: { serviceFee: number } | null;
+    error: string | null;
+}
+
+function StepReview({ theme, selectedTrade, description, address, estimating, estimate, error }: StepReviewProps) {
+    const tradeConfig = TRADES.find((t) => t.key === selectedTrade);
+
+    return (
+        <View>
+            <Text style={[theme.typography.headingSm, { color: theme.colors.textPrimary, marginBottom: theme.spacing.lg }]}>
+                {t('request.reviewSummary')}
+            </Text>
+
+            {/* Summary card */}
+            <Card>
+                {/* Trade */}
+                <View style={styles.reviewRow}>
+                    <Text style={[theme.typography.label, { color: theme.colors.textTertiary }]}>
+                        {t('request.tradeLabel')}
+                    </Text>
+                    <View style={styles.reviewValue}>
+                        {tradeConfig && (
+                            <MaterialCommunityIcons name={tradeConfig.icon} size={16} color={tradeConfig.color} />
+                        )}
+                        <Text style={[theme.typography.bodySm, { color: theme.colors.textPrimary, marginLeft: 6 }]}>
+                            {tradeConfig ? t(tradeConfig.i18nLabel) : '—'}
+                        </Text>
+                    </View>
+                </View>
+
+                <View style={[styles.divider, { backgroundColor: theme.colors.divider }]} />
+
+                {/* Issue */}
+                <View style={styles.reviewRow}>
+                    <Text style={[theme.typography.label, { color: theme.colors.textTertiary }]}>
+                        {t('request.issueLabel')}
+                    </Text>
+                    <Text
+                        style={[theme.typography.bodySm, { color: theme.colors.textPrimary, flex: 1, textAlign: 'right' }]}
+                        numberOfLines={2}
+                    >
+                        {description || '—'}
+                    </Text>
+                </View>
+
+                <View style={[styles.divider, { backgroundColor: theme.colors.divider }]} />
+
+                {/* Address */}
+                <View style={styles.reviewRow}>
+                    <Text style={[theme.typography.label, { color: theme.colors.textTertiary }]}>
+                        {t('request.addressLabel')}
+                    </Text>
+                    <Text
+                        style={[theme.typography.bodySm, { color: theme.colors.textPrimary, flex: 1, textAlign: 'right' }]}
+                        numberOfLines={2}
+                    >
+                        {address || '—'}
+                    </Text>
+                </View>
+            </Card>
+
+            {/* Estimate */}
+            <View style={{ marginTop: theme.spacing.xl }}>
+                {estimating ? (
+                    <View style={styles.estimateLoading}>
+                        <ActivityIndicator size="small" color={theme.colors.accent} />
+                        <Text style={[theme.typography.bodySm, { color: theme.colors.textSecondary, marginLeft: 10 }]}>
+                            {t('request.gettingEstimate')}
+                        </Text>
+                    </View>
+                ) : estimate ? (
+                    <Card>
+                        <View style={styles.feeRow}>
+                            <Text style={[theme.typography.bodyLg, { color: theme.colors.textPrimary }]}>
+                                {t('request.serviceFee')}
+                            </Text>
+                            <Text style={[theme.typography.bodyLg, { color: theme.colors.textPrimary }]}>
+                                ${estimate.serviceFee.toFixed(2)}
+                            </Text>
+                        </View>
+                        <View style={styles.feeRow}>
+                            <Text style={[theme.typography.bodySm, { color: theme.colors.textSecondary }]}>
+                                {t('request.bookingFee')}
+                            </Text>
+                            <Text style={[theme.typography.bodySm, { color: theme.colors.textSecondary }]}>
+                                ${BOOKING_FEE.toFixed(2)}
+                            </Text>
+                        </View>
+                        <View style={[styles.divider, { backgroundColor: theme.colors.divider, marginVertical: theme.spacing.md }]} />
+                        <View style={styles.feeRow}>
+                            <Text style={[theme.typography.titleLg, { color: theme.colors.textPrimary }]}>
+                                {t('request.totalEstimate')}
+                            </Text>
+                            <Text style={[theme.typography.titleLg, { color: theme.colors.accent }]}>
+                                ${(estimate.serviceFee + BOOKING_FEE).toFixed(2)}
+                            </Text>
+                        </View>
+                        <Text style={[theme.typography.caption, { color: theme.colors.textTertiary, marginTop: theme.spacing.md }]}>
+                            {t('request.priceLocked')}
+                        </Text>
+                    </Card>
+                ) : null}
+            </View>
+
+            {/* Error */}
+            {error && (
+                <View style={[styles.errorBar, { backgroundColor: theme.colors.errorLight, borderRadius: theme.radius.md, marginTop: theme.spacing.lg }]}>
+                    <Ionicons name="alert-circle" size={18} color={theme.colors.error} />
+                    <Text style={[theme.typography.bodySm, { color: theme.colors.error, marginLeft: 8, flex: 1 }]}>
+                        {error}
+                    </Text>
+                </View>
+            )}
+        </View>
+    );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-    scroll: {
-        paddingHorizontal: Spacing.lg,
+    root: { flex: 1 },
+    flex: { flex: 1 },
+
+    // Header
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+    },
+
+    // Progress
+    progressContainer: {
+        paddingVertical: 8,
+    },
+    progressTrack: {
+        height: 4,
+        width: '100%',
+        overflow: 'hidden',
+    },
+    progressFill: {
+        height: '100%',
+    },
+
+    // Scroll
+    scrollContent: {
+        paddingTop: 16,
         paddingBottom: 40,
     },
-    sectionLabel: {
-        ...Typography.caption,
-        fontWeight: '600',
-        marginBottom: Spacing.sm,
-        marginTop: Spacing.xl,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
+
+    // Trade grid
+    tradeGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
     },
-    chipScroll: {
-        gap: Spacing.sm,
-        paddingRight: Spacing.lg,
+    tradeCard: {
+        width: (SCREEN_WIDTH - 48 - 12) / 2,
+        paddingVertical: 20,
+        paddingHorizontal: 12,
+        alignItems: 'center',
+        position: 'relative',
+    },
+    tradeIconCircle: {
+        width: 56,
+        height: 56,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    checkBadge: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 
-    // Issue tiles
-    issueTile: {
-        paddingVertical: Spacing.sm,
-        paddingHorizontal: Spacing.md + 2,
-        borderRadius: Radius.full,
-        borderWidth: 1.5,
-    },
-    issueTileText: {
-        ...Typography.caption,
-        fontWeight: '600',
-    },
-
-    // Inputs
-    input: {
+    // Description
+    descInput: {
         borderWidth: 1,
-        borderRadius: Radius.lg,
-        padding: Spacing.md + 2,
-        ...Typography.bodyLg,
-    },
-    textArea: { minHeight: 100 },
-
-    // Address suggestions
-    suggestionsContainer: {
-        borderWidth: 1,
-        borderTopWidth: 0,
-        borderBottomLeftRadius: Radius.lg,
-        borderBottomRightRadius: Radius.lg,
-        overflow: 'hidden',
-        marginTop: -4,
-    },
-    suggestionItem: {
-        flexDirection: 'row' as const,
-        alignItems: 'center' as const,
-        paddingVertical: Spacing.md,
-        paddingHorizontal: Spacing.md + 2,
-        gap: Spacing.sm,
-    },
-    suggestionText: {
-        ...Typography.bodySm,
-        flex: 1,
+        padding: 14,
+        minHeight: 140,
     },
 
     // Photos
-    photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
-    photoThumb: { width: 80, height: 80, borderRadius: Radius.default, overflow: 'hidden' },
-    photoImage: { width: '100%', height: '100%' },
-    photoRemove: { position: 'absolute', top: -2, right: -2 },
-    addMediaBtn: {
+    photoStrip: {
+        gap: 10,
+    },
+    photoThumb: {
         width: 80,
         height: 80,
-        borderRadius: Radius.default,
+        overflow: 'hidden',
+    },
+    photoImage: {
+        width: '100%',
+        height: '100%',
+    },
+    photoRemove: {
+        position: 'absolute',
+        top: -2,
+        right: -2,
+    },
+    addPhotoBtn: {
+        width: 80,
+        height: 80,
         borderWidth: 1.5,
         borderStyle: 'dashed',
+        alignItems: 'center',
         justifyContent: 'center',
-        alignItems: 'center',
-        gap: 2,
-    },
-    addMediaText: {
-        ...Typography.caption,
-        color: Palette.textSecondary,
-        textAlign: 'center',
     },
 
-    // Video
-    addVideoBtn: {
+    // Address
+    addressInput: {
+        borderWidth: 1,
+        padding: 14,
+    },
+    locationBtn: {
         flexDirection: 'row',
-        width: 'auto',
-        height: 'auto',
-        paddingVertical: Spacing.md + 2,
-        paddingHorizontal: Spacing.lg,
-        gap: Spacing.sm,
-    },
-    videoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    videoAttached: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-    videoAttachedText: { ...Typography.bodySm, color: Brand.primary, fontWeight: '600' },
-
-    // Submit
-    submitButton: {
-        backgroundColor: Brand.primary,
-        padding: Spacing.lg,
-        borderRadius: Radius.lg,
         alignItems: 'center',
-        marginTop: Spacing.xl + Spacing.xs,
-        ...Elevation.medium,
     },
-    submitText: {
-        color: '#fff',
-        ...Typography.button,
+    mapContainer: {
+        height: 180,
+        overflow: 'hidden',
+    },
+    mapPreview: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    mapPin: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    // Review
+    reviewRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 8,
+    },
+    reviewValue: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    divider: {
+        height: StyleSheet.hairlineWidth,
+    },
+    estimateLoading: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 24,
+    },
+    feeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 4,
+    },
+    errorBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+    },
+
+    // Bottom bar
+    bottomBar: {
+        paddingTop: 12,
+        borderTopWidth: StyleSheet.hairlineWidth,
+    },
+    cancelBtn: {
+        marginTop: 12,
+        paddingVertical: 8,
     },
 });

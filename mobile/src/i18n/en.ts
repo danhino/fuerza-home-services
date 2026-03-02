@@ -66,6 +66,32 @@ const en = {
     'request.videoTooLong': 'Video must be under 60 seconds',
     'request.videoAvailable': '🎥 Video available',
 
+    // ── Request Wizard Steps ─────────────────────────
+    'request.step1': 'Select Trade',
+    'request.step2': 'Describe Issue',
+    'request.step3': 'Service Address',
+    'request.step4': 'Review & Book',
+    'request.continue': 'Continue',
+    'request.back': 'Back',
+    'request.cancel': 'Cancel',
+    'request.confirmBook': 'Confirm & Book',
+    'request.gettingEstimate': 'Getting your estimate...',
+    'request.serviceFee': 'Service Fee',
+    'request.bookingFee': 'Booking Fee',
+    'request.totalEstimate': 'Total',
+    'request.priceLocked': 'Final price is locked. Any changes require mutual agreement.',
+    'request.useCurrentLocation': 'Use my current location',
+    'request.reviewSummary': 'Review Your Request',
+    'request.tradeLabel': 'Service',
+    'request.issueLabel': 'Issue',
+    'request.addressLabel': 'Address',
+    'request.estimateFailed': 'Unable to get estimate. Please try again.',
+    'request.bookingFailed': 'Booking failed. Please try again.',
+    'request.plumbingDesc': 'Leaks, pipes, fixtures',
+    'request.electricalDesc': 'Wiring, outlets, panels',
+    'request.hvacDesc': 'Heating, cooling, air quality',
+    'request.poolDesc': 'Pumps, cleaning, chemicals',
+
     // ── Triage Results ───────────────────────────────
     'triage.title': 'Preliminary Estimate',
     'triage.disclaimer': 'This is a preliminary estimate — final price may vary based on diagnosis.',
@@ -199,6 +225,17 @@ const en = {
     'tabs.jobs': 'Jobs',
     'tabs.earnings': 'Earnings',
     'tabs.profile': 'Profile',
+
+    // ── Map Dashboard ───────────────────────────────
+    'home.map.techsNearby': '{count} technicians available nearby',
+    'home.map.requestService': 'Request a Service',
+    'home.map.all': 'All',
+    'home.map.plumbing': 'Plumbing',
+    'home.map.electrical': 'Electrical',
+    'home.map.hvac': 'HVAC',
+    'home.map.pool': 'Pool Service',
+    'home.map.recenter': 'Recenter',
+    'home.map.yourLocation': 'Your Location',
 };
 
 export default en;

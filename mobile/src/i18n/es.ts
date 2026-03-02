@@ -66,6 +66,32 @@ const es = {
     'request.videoTooLong': 'El video debe durar menos de 60 segundos',
     'request.videoAvailable': '🎥 Video disponible',
 
+    // ── Request Wizard Steps ─────────────────────────
+    'request.step1': 'Seleccionar Servicio',
+    'request.step2': 'Describir Problema',
+    'request.step3': 'Dirección del Servicio',
+    'request.step4': 'Revisar y Reservar',
+    'request.continue': 'Continuar',
+    'request.back': 'Atrás',
+    'request.cancel': 'Cancelar',
+    'request.confirmBook': 'Confirmar y Reservar',
+    'request.gettingEstimate': 'Obteniendo tu estimado...',
+    'request.serviceFee': 'Tarifa de Servicio',
+    'request.bookingFee': 'Tarifa de Reserva',
+    'request.totalEstimate': 'Total',
+    'request.priceLocked': 'El precio final está fijo. Cualquier cambio requiere acuerdo mutuo.',
+    'request.useCurrentLocation': 'Usar mi ubicación actual',
+    'request.reviewSummary': 'Revisa tu Solicitud',
+    'request.tradeLabel': 'Servicio',
+    'request.issueLabel': 'Problema',
+    'request.addressLabel': 'Dirección',
+    'request.estimateFailed': 'No se pudo obtener el estimado. Intenta de nuevo.',
+    'request.bookingFailed': 'Error al reservar. Intenta de nuevo.',
+    'request.plumbingDesc': 'Fugas, tuberías, grifos',
+    'request.electricalDesc': 'Cableado, tomacorrientes, paneles',
+    'request.hvacDesc': 'Calefacción, refrigeración, aire',
+    'request.poolDesc': 'Bombas, limpieza, químicos',
+
     // ── Triage Results ───────────────────────────────
     'triage.title': 'Estimación Preliminar',
     'triage.disclaimer': 'Esta es una estimación preliminar — el precio final puede variar según el diagnóstico.',
@@ -200,6 +226,17 @@ const es = {
     'tabs.jobs': 'Trabajos',
     'tabs.earnings': 'Ganancias',
     'tabs.profile': 'Perfil',
+
+    // ── Map Dashboard ───────────────────────────────
+    'home.map.techsNearby': '{count} técnicos disponibles cerca',
+    'home.map.requestService': 'Solicitar un Servicio',
+    'home.map.all': 'Todos',
+    'home.map.plumbing': 'Plomería',
+    'home.map.electrical': 'Eléctrico',
+    'home.map.hvac': 'HVAC',
+    'home.map.pool': 'Piscina',
+    'home.map.recenter': 'Recentrar',
+    'home.map.yourLocation': 'Tu ubicación',
 };
 
 export default es;
