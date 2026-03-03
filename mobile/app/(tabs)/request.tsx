@@ -40,7 +40,7 @@ import { Card } from '../../src/components/ui/Card';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Trade = 'PLUMBER' | 'ELECTRICIAN' | 'HVAC' | 'POOL';
+type Trade = 'PLUMBER' | 'ELECTRICIAN' | 'HVAC' | 'POOL' | 'HOUSE_CLEANING' | 'GENERAL_HANDYMAN';
 
 interface TradeOption {
     key: Trade;
@@ -55,7 +55,79 @@ const TRADES: TradeOption[] = [
     { key: 'ELECTRICIAN', icon: 'lightning-bolt', color: '#F59E0B', i18nLabel: 'home.map.electrical', i18nDesc: 'request.electricalDesc' },
     { key: 'HVAC', icon: 'snowflake', color: '#8B5CF6', i18nLabel: 'home.map.hvac', i18nDesc: 'request.hvacDesc' },
     { key: 'POOL', icon: 'waves', color: '#06B6D4', i18nLabel: 'home.map.pool', i18nDesc: 'request.poolDesc' },
+    { key: 'HOUSE_CLEANING', icon: 'broom', color: '#22C55E', i18nLabel: 'request.houseCleaning', i18nDesc: 'request.cleaningDesc' },
+    { key: 'GENERAL_HANDYMAN', icon: 'hammer-wrench', color: '#F97316', i18nLabel: 'request.generalHandyman', i18nDesc: 'request.handymanDesc' },
 ];
+
+// ─── Issue Tiles ─────────────────────────────────────────────────────────────
+
+interface IssueTile {
+    i18nKey: string;
+    /** Only used for HOUSE_CLEANING — sets the cleaning price hint */
+    priceHint?: number;
+    /** If true, clears description and focuses input instead of pre-populating */
+    isOther?: boolean;
+}
+
+const ISSUE_TILES: Record<Trade, IssueTile[]> = {
+    PLUMBER: [
+        { i18nKey: 'tile.plumber.leakSink' },
+        { i18nKey: 'tile.plumber.replaceToilet' },
+        { i18nKey: 'tile.plumber.showerLever' },
+        { i18nKey: 'tile.plumber.cloggedDrain' },
+        { i18nKey: 'tile.plumber.waterHeater' },
+    ],
+    ELECTRICIAN: [
+        { i18nKey: 'tile.electrician.replaceOutlet' },
+        { i18nKey: 'tile.electrician.ceilingFan' },
+        { i18nKey: 'tile.electrician.evCharger' },
+        { i18nKey: 'tile.electrician.breaker' },
+        { i18nKey: 'tile.electrician.lightSwitch' },
+    ],
+    HVAC: [
+        { i18nKey: 'tile.hvac.dirtyFilters' },
+        { i18nKey: 'tile.hvac.notCooling' },
+        { i18nKey: 'tile.hvac.waterLeak' },
+        { i18nKey: 'tile.hvac.notHeating' },
+        { i18nKey: 'tile.hvac.restrictedAirflow' },
+        { i18nKey: 'tile.hvac.notStarting' },
+    ],
+    POOL: [
+        { i18nKey: 'tile.pool.cleaning' },
+        { i18nKey: 'tile.pool.filterCleaning' },
+        { i18nKey: 'tile.pool.pumpStopped' },
+        { i18nKey: 'tile.pool.stains' },
+        { i18nKey: 'tile.pool.algae' },
+        { i18nKey: 'tile.pool.cloudyWater' },
+        { i18nKey: 'tile.pool.lights' },
+    ],
+    HOUSE_CLEANING: [
+        { i18nKey: 'tile.cleaning.small', priceHint: 125 },
+        { i18nKey: 'tile.cleaning.medium', priceHint: 175 },
+        { i18nKey: 'tile.cleaning.large', priceHint: 275 },
+        { i18nKey: 'tile.cleaning.xl', priceHint: 325 },
+    ],
+    GENERAL_HANDYMAN: [
+        { i18nKey: 'tile.handyman.assembleFurniture' },
+        { i18nKey: 'tile.handyman.mountTv' },
+        { i18nKey: 'tile.handyman.patchDrywall' },
+        { i18nKey: 'tile.handyman.installLock' },
+        { i18nKey: 'tile.handyman.caulking' },
+        { i18nKey: 'tile.handyman.hangPictures' },
+        { i18nKey: 'tile.handyman.squeakyDoor' },
+        { i18nKey: 'tile.handyman.other', isOther: true },
+    ],
+};
+
+// Trade-specific flat-rate fallbacks
+const FLAT_RATES: Record<Trade, number> = {
+    PLUMBER: 140,
+    ELECTRICIAN: 165,
+    HVAC: 200,
+    POOL: 120,
+    HOUSE_CLEANING: 150,
+    GENERAL_HANDYMAN: 95,
+};
 
 const TOTAL_STEPS = 4;
 const BOOKING_FEE = 2.99;
@@ -81,6 +153,8 @@ export default function RequestScreen() {
     const [photos, setPhotos] = useState<string[]>([]);
     const [address, setAddress] = useState('');
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [selectedTile, setSelectedTile] = useState<string | null>(null);
+    const [cleaningPriceHint, setCleaningPriceHint] = useState<number | null>(null);
 
     // ── Step 4 State ─────────────────────────────────────────────────────────
     const [estimating, setEstimating] = useState(false);
@@ -160,6 +234,12 @@ export default function RequestScreen() {
     // ── Estimate & Booking ───────────────────────────────────────────────────
 
     const fetchEstimate = useCallback(async () => {
+        // For HOUSE_CLEANING with a price hint, skip the API call
+        if (selectedTrade === 'HOUSE_CLEANING' && cleaningPriceHint) {
+            setEstimate({ serviceFee: cleaningPriceHint });
+            return;
+        }
+
         setEstimating(true);
         setError(null);
         try {
@@ -168,14 +248,14 @@ export default function RequestScreen() {
                 description,
                 address,
             });
-            setEstimate({ serviceFee: data.estimatedPrice || data.serviceFee || 89.99 });
+            setEstimate({ serviceFee: data.estimatedPrice || data.serviceFee || FLAT_RATES[selectedTrade || 'PLUMBER'] });
         } catch {
-            // Fallback estimate for demo
-            setEstimate({ serviceFee: 89.99 });
+            // Trade-specific fallback
+            setEstimate({ serviceFee: FLAT_RATES[selectedTrade || 'PLUMBER'] });
         } finally {
             setEstimating(false);
         }
-    }, [selectedTrade, description, address]);
+    }, [selectedTrade, description, address, cleaningPriceHint]);
 
     const handleBook = useCallback(async () => {
         setBooking(true);
@@ -314,11 +394,15 @@ export default function RequestScreen() {
                     {step === 2 && (
                         <StepDescribeIssue
                             theme={theme}
+                            selectedTrade={selectedTrade}
                             description={description}
                             setDescription={setDescription}
                             photos={photos}
                             pickPhotos={pickPhotos}
                             removePhoto={removePhoto}
+                            selectedTile={selectedTile}
+                            setSelectedTile={setSelectedTile}
+                            setCleaningPriceHint={setCleaningPriceHint}
                         />
                     )}
                     {step === 3 && (
@@ -473,29 +557,102 @@ function StepSelectTrade({ theme, selectedTrade, onSelect }: StepSelectTradeProp
 
 interface StepDescribeIssueProps {
     theme: ReturnType<typeof useTheme>;
+    selectedTrade: Trade | null;
     description: string;
     setDescription: (d: string) => void;
     photos: string[];
     pickPhotos: () => void;
     removePhoto: (i: number) => void;
+    selectedTile: string | null;
+    setSelectedTile: (tile: string | null) => void;
+    setCleaningPriceHint: (price: number | null) => void;
 }
 
 function StepDescribeIssue({
     theme,
+    selectedTrade,
     description,
     setDescription,
     photos,
     pickPhotos,
     removePhoto,
+    selectedTile,
+    setSelectedTile,
+    setCleaningPriceHint,
 }: StepDescribeIssueProps) {
+    const tiles = selectedTrade ? ISSUE_TILES[selectedTrade] : [];
+
+    const handleTileTap = (tile: IssueTile) => {
+        const label = t(tile.i18nKey);
+        if (selectedTile === tile.i18nKey) {
+            // Deselect — clear description and price hint
+            setSelectedTile(null);
+            setDescription('');
+            setCleaningPriceHint(null);
+        } else {
+            // Select — populate description and set price hint if applicable
+            setSelectedTile(tile.i18nKey);
+            if (tile.isOther) {
+                // "Other" tile: clear description so user can type freely
+                setDescription('');
+            } else {
+                setDescription(label);
+            }
+            if (tile.priceHint) {
+                setCleaningPriceHint(tile.priceHint);
+            } else {
+                setCleaningPriceHint(null);
+            }
+        }
+    };
+
     return (
         <View>
             <Text style={[theme.typography.headingSm, { color: theme.colors.textPrimary, marginBottom: theme.spacing.sm }]}>
                 {t('request.description')}
             </Text>
-            <Text style={[theme.typography.bodySm, { color: theme.colors.textSecondary, marginBottom: theme.spacing.lg }]}>
+            <Text style={[theme.typography.bodySm, { color: theme.colors.textSecondary, marginBottom: theme.spacing.md }]}>
                 {t('request.descriptionPlaceholder')}
             </Text>
+
+            {/* ── Issue Tiles ── */}
+            {tiles.length > 0 && (
+                <View style={{ marginBottom: theme.spacing.lg }}>
+                    <Text style={[theme.typography.label, { color: theme.colors.textTertiary, marginBottom: theme.spacing.sm }]}>
+                        {t('request.quickSelect')}
+                    </Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tileStrip}>
+                        {tiles.map((tile) => {
+                            const isSelected = selectedTile === tile.i18nKey;
+                            return (
+                                <TouchableOpacity
+                                    key={tile.i18nKey}
+                                    onPress={() => handleTileTap(tile)}
+                                    activeOpacity={0.7}
+                                    style={[
+                                        styles.issueTileChip,
+                                        {
+                                            backgroundColor: isSelected ? theme.colors.accent : theme.colors.surface,
+                                            borderColor: isSelected ? theme.colors.accent : theme.colors.border,
+                                            borderRadius: theme.radius.full,
+                                        },
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            theme.typography.captionMedium,
+                                            { color: isSelected ? '#FFFFFF' : theme.colors.textPrimary },
+                                        ]}
+                                        numberOfLines={1}
+                                    >
+                                        {t(tile.i18nKey)}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
+            )}
 
             {/* Multiline input */}
             <RNTextInput
@@ -824,6 +981,17 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         padding: 14,
         minHeight: 140,
+    },
+
+    // Issue tiles
+    tileStrip: {
+        gap: 8,
+        paddingRight: 4,
+    },
+    issueTileChip: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderWidth: 1,
     },
 
     // Photos

@@ -33,7 +33,7 @@ import { Button } from '../ui/Button';
 
 // ─── Re-exported types for backward compat with index.tsx ────────────────────
 
-export type TradeKey = 'PLUMBER' | 'ELECTRICIAN' | 'HVAC' | 'POOL';
+export type TradeKey = 'PLUMBER' | 'ELECTRICIAN' | 'HVAC' | 'POOL' | 'HOUSE_CLEANING' | 'GENERAL_HANDYMAN';
 
 export interface TradeMeta {
     key: TradeKey;
@@ -57,6 +57,8 @@ const TRADE_FILTERS: TradeConfig[] = [
     { key: 'ELECTRICIAN', i18nKey: 'home.map.electrical', icon: 'lightning-bolt', color: '#F59E0B' },
     { key: 'HVAC', i18nKey: 'home.map.hvac', icon: 'snowflake', color: '#8B5CF6' },
     { key: 'POOL', i18nKey: 'home.map.pool', icon: 'waves', color: '#06B6D4' },
+    { key: 'HOUSE_CLEANING', i18nKey: 'home.map.cleaning', icon: 'broom', color: '#6B7280' },
+    { key: 'GENERAL_HANDYMAN', i18nKey: 'home.map.handyman', icon: 'hammer-wrench', color: '#F97316' },
 ];
 
 const CATEGORY_CARDS: TradeConfig[] = TRADE_FILTERS.slice(1); // Exclude 'ALL'
@@ -66,6 +68,8 @@ const TRADE_PIN_ICON: Record<string, keyof typeof MaterialCommunityIcons.glyphMa
     ELECTRICIAN: 'lightning-bolt',
     HVAC: 'snowflake',
     POOL: 'waves',
+    HOUSE_CLEANING: 'broom',
+    GENERAL_HANDYMAN: 'hammer-wrench',
 };
 
 const TRADE_PIN_COLOR: Record<string, string> = {
@@ -73,6 +77,8 @@ const TRADE_PIN_COLOR: Record<string, string> = {
     ELECTRICIAN: '#F59E0B',
     HVAC: '#8B5CF6',
     POOL: '#06B6D4',
+    HOUSE_CLEANING: '#6B7280',
+    GENERAL_HANDYMAN: '#F97316',
 };
 
 // ─── Default region (San Antonio, TX) ────────────────────────────────────────

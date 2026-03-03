@@ -3,7 +3,7 @@ import { socketService } from '../services/socket.service';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type TradeFilter = 'ALL' | 'PLUMBER' | 'ELECTRICIAN' | 'HVAC' | 'POOL';
+export type TradeFilter = 'ALL' | 'PLUMBER' | 'ELECTRICIAN' | 'HVAC' | 'POOL' | 'HOUSE_CLEANING' | 'GENERAL_HANDYMAN';
 
 export interface TechnicianLocation {
     techId: string;
