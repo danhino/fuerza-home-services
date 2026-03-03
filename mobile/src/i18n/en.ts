@@ -229,6 +229,24 @@ const en = {
     'jobs.accepted': 'Job Accepted!',
     'jobs.acceptFailed': 'Failed to accept job',
 
+    // ── Job Detail ──────────────────────────────────
+    'jobDetail.newJob': 'New Job',
+    'jobDetail.memberSince': 'Member since',
+    'jobDetail.badgeES': 'ES',
+    'jobDetail.distance': 'away',
+    'jobDetail.issueDescription': 'Issue Description',
+    'jobDetail.showMore': 'Show more',
+    'jobDetail.showLess': 'Show less',
+    'jobDetail.photos': 'Photos',
+    'jobDetail.flatRate': 'Flat Rate Estimate',
+    'jobDetail.serviceFee': 'Service Fee',
+    'jobDetail.bookingFee': 'Booking Fee',
+    'jobDetail.youReceive': 'You receive after 12% platform fee',
+    'jobDetail.accept': 'Accept Job',
+    'jobDetail.decline': 'Decline',
+    'jobDetail.acceptFailed': 'Failed to accept job',
+    'jobDetail.timerExpired': 'Time expired — job returned to pool',
+
     // ── Jobs — Invoice ───────────────────────────────
     'jobs.invoice.title': 'Final Invoice',
     'jobs.invoice.baseEstimate': 'Base Estimate',
@@ -275,6 +293,25 @@ const en = {
     'home.nextJob': 'Your Next Job',
     'home.startNavigation': 'Start Navigation',
     'home.upcomingSchedule': 'Upcoming Schedule',
+
+    // ── Tech Dashboard ──────────────────────────────
+    'techDash.offline': 'You are Offline',
+    'techDash.goOnline': 'Go Online',
+    'techDash.online': 'You are Online — Accepting Jobs',
+    'techDash.goOffline': 'Go Offline',
+    'techDash.todayEarnings': "Today's Earnings",
+    'techDash.weekEarnings': 'This Week',
+    'techDash.pendingPayout': 'Pending Payout',
+    'techDash.activeJob': 'Active Job',
+    'techDash.viewDetails': 'View Job Details',
+    'techDash.newRequests': 'New Requests',
+    'techDash.seeAll': 'See all',
+    'techDash.noRequests': "No pending requests. You'll be notified when new jobs come in.",
+    'techDash.recentJobs': 'Recent Jobs',
+    'techDash.jobsToday': 'jobs today',
+    'techDash.rating': 'rating',
+    'techDash.acceptRate': 'accept rate',
+    'techDash.view': 'View',
 
     // ── Role Selection ───────────────────────────────
     'roleSelect.title': 'Welcome to Fuerza',

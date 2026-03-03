@@ -9,6 +9,7 @@ interface User {
     lastName?: string;
     role: 'CUSTOMER' | 'TECHNICIAN' | 'BOTH';
     preferredLanguage?: 'en' | 'es';
+    isOnline?: boolean;
 }
 
 interface AuthState {
@@ -17,6 +18,7 @@ interface AuthState {
     isAuthenticated: boolean;
     login: (token: string, user: User) => void;
     logout: () => void;
+    setIsOnline: (val: boolean) => void;
 }
 
 import { socketService } from '../services/socket.service';
@@ -33,4 +35,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         socketService.disconnect();
         set({ token: null, user: null, isAuthenticated: false });
     },
+    setIsOnline: (val) => set((state) => ({
+        user: state.user ? { ...state.user, isOnline: val } : null,
+    })),
 }));

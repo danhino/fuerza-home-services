@@ -1,363 +1,587 @@
 /**
  * TechnicianMainDashboard.tsx
  *
- * Presentational component matching Stitch Screen b151d673 — "Professional Technician Main Dashboard".
- * Pure UI: all data and callbacks provided via props, zero internal hooks.
- *
- * Stitch layout (780 × 1888 @2x mobile):
- *   ┌─ Greeting ("Good Morning, Juan!")                   ─┐
- *   │  Date subtitle ("Thursday, Oct 12")                   │
- *   │  Section: Your Next Job (highlighted card)            │
- *   │    • "Kitchen Faucet Repair"                          │
- *   │    • "123 Maple St, Springfield, IL"                  │
- *   │    • "Unit 4B • Entry Code: 1234"                     │
- *   │  Section: Upcoming Schedule (list of job rows)        │
- *   │    • Electrical Inspection — Sarah Jenkins — 4.2mi    │
- *   │    • AC Maintenance — Michael Ross — 1.5mi            │
- *   │    • Plumbing Consultation — David G. — 8.0mi         │
- *   └─ Bottom Tab Bar (handled by Expo Tabs, not here) ────┘
+ * Uber Driver–style technician command center.
+ * Self-contained: reads from useAuthStore, useJobStore, useLanguageStore.
  */
-
-import React from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     ScrollView,
     TouchableOpacity,
+    Animated,
+    RefreshControl,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Spacing, Elevation, Radius } from '../../constants/Spacing';
-import { Typography } from '../../constants/Typography';
-import { Palette, Brand } from '../../constants/Colors';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter, useFocusEffect } from 'expo-router';
 
-// ── Types ──────────────────────────────────────────────────
+import { useTheme } from '../../hooks/useTheme';
+import { t, useLanguageStore } from '../../i18n';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useJobStore, Job } from '../../store/useJobStore';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
+import { Badge } from '../ui/Badge';
+import { StatusPill, JobStatus } from '../ui/StatusPill';
+import { SectionHeader } from '../ui/SectionHeader';
+import { Avatar } from '../ui/Avatar';
+import api from '../../services/api';
 
-export interface NextJob {
-    title: string;
-    address: string;
-    details?: string;           // e.g. "Unit 4B • Entry Code: 1234"
-    scheduledTime?: string;     // e.g. "10:30 AM"
+// ─── Trade pin config (reuse from map system) ────────────────────────────────
+
+const TRADE_ICON: Record<string, string> = {
+    PLUMBER: 'wrench',
+    ELECTRICIAN: 'lightning-bolt',
+    HVAC: 'snowflake',
+    POOL: 'waves',
+    HOUSE_CLEANING: 'broom',
+    GENERAL_HANDYMAN: 'hammer-wrench',
+};
+const TRADE_COLOR: Record<string, string> = {
+    PLUMBER: '#3B82F6',
+    ELECTRICIAN: '#F59E0B',
+    HVAC: '#8B5CF6',
+    POOL: '#06B6D4',
+    HOUSE_CLEANING: '#6B7280',
+    GENERAL_HANDYMAN: '#F97316',
+};
+const TRADE_LABEL: Record<string, string> = {
+    PLUMBER: 'home.map.plumbing',
+    ELECTRICIAN: 'home.map.electrical',
+    HVAC: 'home.map.hvac',
+    POOL: 'home.map.pool',
+    HOUSE_CLEANING: 'home.map.cleaning',
+    GENERAL_HANDYMAN: 'home.map.handyman',
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const ACTIVE_STATUSES = ['MATCHED', 'EN_ROUTE', 'ARRIVED', 'WORKING'];
+const PENDING_STATUSES = ['REQUESTED'];
+const COMPLETED_STATUSES = ['COMPLETED'];
+
+function getGreeting(): string {
+    const h = new Date().getHours();
+    if (h < 12) return t('home.greeting.morning');
+    if (h < 18) return t('home.greeting.afternoon');
+    return t('home.greeting.evening');
 }
 
-export interface UpcomingJob {
-    title: string;
-    customerName: string;
-    distance: string;           // e.g. "4.2 miles away"
-    iconColor?: string;
-}
+// ─── Component ───────────────────────────────────────────────────────────────
 
-export interface TechnicianMainDashboardProps {
-    // Greeting
-    greeting: string;
-    userName: string;
-    dateSubtitle: string;       // e.g. "Thursday, Oct 12"
-    textColor: string;
-    backgroundColor: string;
-    cardColor: string;
+export function TechnicianMainDashboard() {
+    const theme = useTheme();
+    const router = useRouter();
+    const language = useLanguageStore((s) => s.language);
 
-    // Next job
-    nextJob: NextJob | null;
-    nextJobLabel: string;
-    onNextJobPress?: () => void;
-    startNavigationLabel?: string;
+    const user = useAuthStore((s) => s.user);
+    const isOnline = user?.isOnline ?? false;
+    const jobs = useJobStore((s) => s.jobs);
+    const fetchJobs = useJobStore((s) => s.fetchJobs);
 
-    // Upcoming schedule
-    upcomingJobs: UpcomingJob[];
-    upcomingScheduleLabel: string;
-    onJobPress?: (index: number) => void;
+    // ── Online / Offline state ───────────────────────────────────────────────
 
-    // Notification
-    onNotificationPress?: () => void;
-}
+    const [toggling, setToggling] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const pulseAnim = useRef(new Animated.Value(1)).current;
 
-// ── Component ──────────────────────────────────────────────
+    // Pulse animation while online
+    useEffect(() => {
+        if (!isOnline) return;
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+                Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+            ])
+        );
+        loop.start();
+        return () => loop.stop();
+    }, [isOnline, pulseAnim]);
 
-export function TechnicianMainDashboard(props: TechnicianMainDashboardProps) {
-    const {
-        greeting,
-        userName,
-        dateSubtitle,
-        textColor,
-        backgroundColor,
-        cardColor,
-        nextJob,
-        nextJobLabel,
-        onNextJobPress,
-        startNavigationLabel,
-        upcomingJobs,
-        upcomingScheduleLabel,
-        onJobPress,
-        onNotificationPress,
-    } = props;
+    const toggleOnline = useCallback(async () => {
+        if (toggling) return;
+        setToggling(true);
+        const newStatus = !isOnline;
+        try {
+            await api.put('/api/technicians/me/status', { isOnline: newStatus });
+            // Update store ONLY after API confirms success
+            useAuthStore.getState().setIsOnline(newStatus);
+        } catch {
+            // API failed — do NOT update the store, show error toast
+            Alert.alert(
+                language === 'es'
+                    ? 'Error al actualizar estado. Intenta de nuevo.'
+                    : 'Failed to update status. Please try again.'
+            );
+        } finally {
+            // Always re-enable the button regardless of success or failure
+            setToggling(false);
+        }
+    }, [isOnline, toggling, language]);
+
+    // ── Re-fetch jobs on focus ────────────────────────────────────────────────
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchJobs('TECHNICIAN');
+        }, [fetchJobs])
+    );
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchJobs('TECHNICIAN');
+        setRefreshing(false);
+    }, [fetchJobs]);
+
+    // ── Derived data ─────────────────────────────────────────────────────────
+
+    const activeJob = useMemo(
+        () => jobs.find((j) => ACTIVE_STATUSES.includes(j.status)),
+        [jobs]
+    );
+    const pendingJobs = useMemo(
+        () => jobs.filter((j) => PENDING_STATUSES.includes(j.status)),
+        [jobs]
+    );
+    const completedJobs = useMemo(
+        () => jobs.filter((j) => COMPLETED_STATUSES.includes(j.status)).slice(0, 5),
+        [jobs]
+    );
+
+    // Mock stats (would come from API in production)
+    const todayEarnings = 0;
+    const weekEarnings = 0;
+    const pendingPayout = 0;
+    const jobsToday = completedJobs.length;
+    const techRating = 4.8;
+    const acceptRate = 92;
+
+    // ── Render ────────────────────────────────────────────────────────────────
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor }]}>
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
+        <SafeAreaView style={[styles.root, { backgroundColor: theme.colors.background }]}>
+            {/* ═══ ONLINE / OFFLINE BANNER ═══ */}
+            <View
+                style={[
+                    styles.statusBanner,
+                    {
+                        backgroundColor: isOnline ? '#22C55E' : theme.colors.backgroundTertiary,
+                        paddingHorizontal: theme.spacing.lg,
+                    },
+                ]}
             >
-                {/* ── Header ────────────────────────────── */}
-                <View style={styles.header}>
-                    <View style={styles.headerText}>
-                        <Text style={[styles.greeting, { color: textColor }]}>
-                            {greeting} {userName}!
-                        </Text>
-                        <Text style={[styles.dateSubtitle, { color: textColor }]}>
-                            {dateSubtitle}
-                        </Text>
-                    </View>
+                <View style={styles.statusRow}>
+                    {isOnline && (
+                        <Animated.View
+                            style={[
+                                styles.pulseDot,
+                                { backgroundColor: '#FFFFFF', opacity: pulseAnim },
+                            ]}
+                        />
+                    )}
+                    <Text
+                        style={[
+                            theme.typography.titleSm,
+                            {
+                                color: isOnline ? '#FFFFFF' : theme.colors.textSecondary,
+                                marginLeft: isOnline ? 10 : 0,
+                                flex: 1,
+                            },
+                        ]}
+                    >
+                        {isOnline ? t('techDash.online') : t('techDash.offline')}
+                    </Text>
                     <TouchableOpacity
-                        style={[styles.bellButton, { backgroundColor: cardColor }]}
-                        onPress={onNotificationPress}
+                        onPress={toggleOnline}
+                        disabled={toggling}
+                        style={[
+                            styles.toggleBtn,
+                            {
+                                backgroundColor: isOnline
+                                    ? 'rgba(255,255,255,0.2)'
+                                    : theme.colors.accent,
+                                borderRadius: theme.radius.md,
+                            },
+                        ]}
                         activeOpacity={0.7}
                     >
-                        <Ionicons name="notifications-outline" size={24} color={textColor} />
+                        <Text
+                            style={[
+                                theme.typography.titleSm,
+                                { color: '#FFFFFF' },
+                            ]}
+                        >
+                            {isOnline ? t('techDash.goOffline') : t('techDash.goOnline')}
+                        </Text>
                     </TouchableOpacity>
                 </View>
+            </View>
 
-                {/* ── Next Job Card ─────────────────────── */}
-                <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: textColor }]}>
-                        {nextJobLabel}
+            {/* ═══ GREETING ═══ */}
+            <View style={[styles.greetingRow, { paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.lg }]}>
+                <View style={{ flex: 1 }}>
+                    <Text style={[theme.typography.headingLg, { color: theme.colors.textPrimary }]}>
+                        {getGreeting()}, {user?.firstName || user?.name || ''}
                     </Text>
-                    {nextJob ? (
-                        <TouchableOpacity
-                            style={[styles.nextJobCard, { backgroundColor: cardColor }]}
-                            onPress={onNextJobPress}
-                            activeOpacity={0.85}
-                        >
-                            <View style={styles.nextJobHeader}>
-                                <View style={styles.nextJobIconCircle}>
-                                    <Ionicons name="construct" size={22} color="#fff" />
-                                </View>
-                                <View style={styles.nextJobInfo}>
-                                    <Text style={[styles.nextJobTitle, { color: textColor }]}>
-                                        {nextJob.title}
-                                    </Text>
-                                    <Text style={styles.nextJobAddress}>
-                                        {nextJob.address}
-                                    </Text>
-                                </View>
-                                {nextJob.scheduledTime && (
-                                    <Text style={styles.nextJobTime}>{nextJob.scheduledTime}</Text>
-                                )}
-                            </View>
-                            {nextJob.details && (
-                                <Text style={styles.nextJobDetails}>{nextJob.details}</Text>
-                            )}
-                            {startNavigationLabel && (
-                                <TouchableOpacity
-                                    style={styles.navButton}
-                                    onPress={onNextJobPress}
-                                    activeOpacity={0.85}
-                                >
-                                    <Ionicons name="navigate" size={18} color="#fff" />
-                                    <Text style={styles.navButtonText}>
-                                        {startNavigationLabel}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-                        </TouchableOpacity>
-                    ) : (
-                        <View style={[styles.emptyCard, { backgroundColor: cardColor }]}>
-                            <Ionicons name="checkmark-circle-outline" size={40} color={Brand.success} />
-                            <Text style={[styles.emptyText, { color: textColor }]}>
-                                No upcoming jobs
+                    <Text style={[theme.typography.bodySm, { color: theme.colors.textTertiary, marginTop: 2 }]}>
+                        {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    onPress={() => router.push('/(tabs)/profile')}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                    <Avatar name={user?.name || 'T'} size="md" />
+                </TouchableOpacity>
+            </View>
+
+            <ScrollView
+                style={styles.flex}
+                contentContainerStyle={[styles.content, { paddingHorizontal: theme.spacing.lg }]}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />
+                }
+            >
+                {/* ═══ ACTIVE JOB CARD ═══ */}
+                {activeJob && (
+                    <Card style={{ marginTop: theme.spacing.lg }}>
+                        <View style={styles.activeJobHeader}>
+                            <Ionicons name="construct" size={20} color={theme.colors.accent} />
+                            <Text style={[theme.typography.titleSm, { color: theme.colors.accent, marginLeft: 8, flex: 1 }]}>
+                                {t('techDash.activeJob')}
                             </Text>
+                            <StatusPill status={activeJob.status as JobStatus} compact />
                         </View>
-                    )}
+
+                        <Text style={[theme.typography.titleLg, { color: theme.colors.textPrimary, marginTop: theme.spacing.sm }]}>
+                            {activeJob.customer?.user?.name || activeJob.customerName || '—'}
+                        </Text>
+                        <Text style={[theme.typography.bodySm, { color: theme.colors.textSecondary, marginTop: 2 }]} numberOfLines={1}>
+                            {activeJob.address || '—'}
+                        </Text>
+
+                        <View style={{ marginTop: theme.spacing.md }}>
+                            <Button
+                                label={t('techDash.viewDetails')}
+                                variant="primary"
+                                size="sm"
+                                onPress={() => router.push({ pathname: '/(tabs)/job-detail', params: { jobId: activeJob.id } })}
+                            />
+                        </View>
+                    </Card>
+                )}
+
+                {/* ═══ EARNINGS SUMMARY ═══ */}
+                <TouchableOpacity
+                    onPress={() => router.push('/(tabs)/earnings')}
+                    activeOpacity={0.7}
+                    style={{ marginTop: theme.spacing.lg }}
+                >
+                    <Card>
+                        <Text style={[theme.typography.label, { color: theme.colors.textTertiary }]}>
+                            {t('techDash.todayEarnings')}
+                        </Text>
+                        <Text style={[styles.earningsAmount, { color: theme.colors.textPrimary }]}>
+                            ${todayEarnings.toFixed(2)}
+                        </Text>
+
+                        <View style={[styles.earningsSubRow, { marginTop: theme.spacing.md }]}>
+                            <View style={styles.earningsSub}>
+                                <Text style={[theme.typography.caption, { color: theme.colors.textTertiary }]}>
+                                    {t('techDash.weekEarnings')}
+                                </Text>
+                                <Text style={[theme.typography.titleSm, { color: theme.colors.textPrimary }]}>
+                                    ${weekEarnings.toFixed(2)}
+                                </Text>
+                            </View>
+                            <View style={[styles.earningsDivider, { backgroundColor: theme.colors.divider }]} />
+                            <View style={styles.earningsSub}>
+                                <View style={styles.payoutRow}>
+                                    <Text style={[theme.typography.caption, { color: theme.colors.textTertiary }]}>
+                                        {t('techDash.pendingPayout')}
+                                    </Text>
+                                    <Ionicons name="information-circle-outline" size={14} color={theme.colors.textTertiary} style={{ marginLeft: 4 }} />
+                                </View>
+                                <Text style={[theme.typography.titleSm, { color: theme.colors.textPrimary }]}>
+                                    ${pendingPayout.toFixed(2)}
+                                </Text>
+                            </View>
+                        </View>
+                    </Card>
+                </TouchableOpacity>
+
+                {/* ═══ QUICK STATS ═══ */}
+                <View style={[styles.statsRow, { marginTop: theme.spacing.lg }]}>
+                    <View style={[styles.statChip, { backgroundColor: theme.colors.surface, borderRadius: theme.radius.md }]}>
+                        <Text style={[theme.typography.titleSm, { color: theme.colors.accent }]}>{jobsToday}</Text>
+                        <Text style={[theme.typography.caption, { color: theme.colors.textTertiary }]}>{t('techDash.jobsToday')}</Text>
+                    </View>
+                    <View style={[styles.statChip, { backgroundColor: theme.colors.surface, borderRadius: theme.radius.md }]}>
+                        <Text style={[theme.typography.titleSm, { color: '#F59E0B' }]}>⭐ {techRating}</Text>
+                        <Text style={[theme.typography.caption, { color: theme.colors.textTertiary }]}>{t('techDash.rating')}</Text>
+                    </View>
+                    <View style={[styles.statChip, { backgroundColor: theme.colors.surface, borderRadius: theme.radius.md }]}>
+                        <Text style={[theme.typography.titleSm, { color: '#22C55E' }]}>{acceptRate}%</Text>
+                        <Text style={[theme.typography.caption, { color: theme.colors.textTertiary }]}>{t('techDash.acceptRate')}</Text>
+                    </View>
                 </View>
 
-                {/* ── Upcoming Schedule ─────────────────── */}
-                {upcomingJobs.length > 0 && (
-                    <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: textColor }]}>
-                            {upcomingScheduleLabel}
-                        </Text>
-                        <View style={[styles.scheduleCard, { backgroundColor: cardColor }]}>
-                            {upcomingJobs.map((job, idx) => (
-                                <TouchableOpacity
-                                    key={`${job.title}-${idx}`}
-                                    style={[
-                                        styles.scheduleRow,
-                                        idx < upcomingJobs.length - 1 && styles.scheduleRowBorder,
-                                    ]}
-                                    onPress={() => onJobPress?.(idx)}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={[styles.scheduleIcon, { backgroundColor: job.iconColor || Brand.primary }]}>
-                                        <Ionicons name="build-outline" size={18} color="#fff" />
-                                    </View>
-                                    <View style={styles.scheduleInfo}>
-                                        <Text style={[styles.scheduleTitle, { color: textColor }]}>
-                                            {job.title}
-                                        </Text>
-                                        <Text style={styles.scheduleSubtitle}>
-                                            {job.customerName} • {job.distance}
-                                        </Text>
-                                    </View>
-                                    <Ionicons name="chevron-forward" size={18} color={Palette.textSecondary} />
-                                </TouchableOpacity>
-                            ))}
+                {/* ═══ PENDING JOB REQUESTS ═══ */}
+                <SectionHeader
+                    title={`${t('techDash.newRequests')} (${pendingJobs.length})`}
+                    onSeeAll={pendingJobs.length > 3 ? () => router.push('/(tabs)/jobs') : undefined}
+                    actionLabel={t('techDash.seeAll')}
+                    style={{ marginTop: theme.spacing.xl }}
+                />
+
+                {pendingJobs.length === 0 ? (
+                    <Card style={{ marginTop: theme.spacing.sm }}>
+                        <View style={styles.emptyState}>
+                            <Ionicons name="time-outline" size={36} color={theme.colors.textTertiary} />
+                            <Text style={[theme.typography.bodySm, { color: theme.colors.textTertiary, textAlign: 'center', marginTop: theme.spacing.sm }]}>
+                                {t('techDash.noRequests')}
+                            </Text>
                         </View>
-                    </View>
+                    </Card>
+                ) : (
+                    pendingJobs.slice(0, 3).map((job, idx) => {
+                        const trade = job.trade || 'PLUMBER';
+                        const icon = TRADE_ICON[trade] || 'wrench';
+                        const color = TRADE_COLOR[trade] || '#3B82F6';
+                        const label = TRADE_LABEL[trade] || 'home.map.plumbing';
+                        const isSpanish = job.customerPreferredLanguage === 'es' || job.customer?.user?.preferredLanguage === 'es';
+                        const isNewest = idx === 0;
+
+                        return (
+                            <Card
+                                key={job.id}
+                                style={{
+                                    marginTop: theme.spacing.sm,
+                                    ...(isNewest ? { borderWidth: 1.5, borderColor: theme.colors.accent } : {}),
+                                }}
+                                onPress={() => router.push({ pathname: '/(tabs)/job-detail', params: { jobId: job.id, isNew: 'true' } })}
+                            >
+                                <View style={styles.requestRow}>
+                                    <View style={[styles.tradeCircle, { backgroundColor: color + '20' }]}>
+                                        <MaterialCommunityIcons name={icon as any} size={20} color={color} />
+                                    </View>
+                                    <View style={styles.requestInfo}>
+                                        <View style={styles.requestTitleRow}>
+                                            <Text style={[theme.typography.titleSm, { color: theme.colors.textPrimary }]} numberOfLines={1}>
+                                                {t(label)}
+                                            </Text>
+                                            {isSpanish && (
+                                                <Badge label="ES" variant="warning" size="sm" />
+                                            )}
+                                        </View>
+                                        <Text style={[theme.typography.caption, { color: theme.colors.textTertiary }]} numberOfLines={1}>
+                                            {job.address || '—'}
+                                        </Text>
+                                        {(job.estimateLow || job.estimate?.currentAmount) && (
+                                            <Text style={[theme.typography.bodySm, { color: theme.colors.accent, fontWeight: '600', marginTop: 2 }]}>
+                                                ${(job.estimate?.currentAmount || job.estimateLow || 0).toFixed(2)}
+                                            </Text>
+                                        )}
+                                    </View>
+                                    <TouchableOpacity
+                                        style={[styles.viewBtn, { backgroundColor: theme.colors.accent + '15', borderRadius: theme.radius.sm }]}
+                                        onPress={() => router.push({ pathname: '/(tabs)/job-detail', params: { jobId: job.id, isNew: 'true' } })}
+                                    >
+                                        <Text style={[theme.typography.caption, { color: theme.colors.accent, fontWeight: '700' }]}>
+                                            {t('techDash.view')}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </Card>
+                        );
+                    })
                 )}
+
+                {/* ═══ RECENT COMPLETED ═══ */}
+                {completedJobs.length > 0 && (
+                    <>
+                        <SectionHeader
+                            title={t('techDash.recentJobs')}
+                            style={{ marginTop: theme.spacing.xl }}
+                        />
+                        {completedJobs.map((job) => {
+                            const trade = job.trade || 'PLUMBER';
+                            const color = TRADE_COLOR[trade] || '#3B82F6';
+                            return (
+                                <View
+                                    key={job.id}
+                                    style={[
+                                        styles.recentRow,
+                                        {
+                                            borderBottomColor: theme.colors.divider,
+                                            paddingVertical: theme.spacing.sm,
+                                        },
+                                    ]}
+                                >
+                                    <View style={[styles.recentDot, { backgroundColor: color }]} />
+                                    <View style={styles.recentInfo}>
+                                        <Text style={[theme.typography.bodySm, { color: theme.colors.textPrimary }]} numberOfLines={1}>
+                                            {t(TRADE_LABEL[trade] || 'home.map.plumbing')} — {job.customer?.user?.name || job.customerName || '—'}
+                                        </Text>
+                                        <Text style={[theme.typography.caption, { color: theme.colors.textTertiary }]}>
+                                            {new Date(job.changeOrders?.[0]?.createdAt || Date.now()).toLocaleDateString()}
+                                        </Text>
+                                    </View>
+                                    <Text style={[theme.typography.titleSm, { color: '#22C55E' }]}>
+                                        ${(job.finalAmount || job.estimate?.currentAmount || 0).toFixed(2)}
+                                    </Text>
+                                </View>
+                            );
+                        })}
+                    </>
+                )}
+
+                {/* Bottom padding */}
+                <View style={{ height: 40 }} />
             </ScrollView>
         </SafeAreaView>
     );
 }
 
-// ── Styles ─────────────────────────────────────────────────
+// ─── Backward-compat type exports (used by index.tsx) ────────────────────────
+
+export interface NextJob {
+    title: string;
+    address: string;
+    details?: string;
+    scheduledTime?: string;
+}
+
+export interface UpcomingJob {
+    title: string;
+    customerName: string;
+    distance: string;
+    iconColor?: string;
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    scrollView: { flex: 1 },
-    scrollContent: { paddingBottom: Spacing.xxl },
-
-    // Header
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: Spacing.screenPaddingH,
-        paddingTop: Spacing.sm,
-        paddingBottom: Spacing.lg,
-    },
-    headerText: { flex: 1 },
-    greeting: {
-        ...Typography.displaySm,
-        marginBottom: 2,
-    },
-    dateSubtitle: {
-        ...Typography.bodySm,
-        opacity: 0.6,
-    },
-    bellButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        ...Elevation.low,
+    root: { flex: 1 },
+    flex: { flex: 1 },
+    content: {
+        paddingBottom: 20,
     },
 
-    // Sections
-    section: {
-        marginBottom: Spacing.xl,
+    // Status banner
+    statusBanner: {
+        paddingVertical: 14,
     },
-    sectionTitle: {
-        ...Typography.titleLg,
-        paddingHorizontal: Spacing.screenPaddingH,
-        marginBottom: Spacing.md,
-    },
-
-    // Next Job Card
-    nextJobCard: {
-        marginHorizontal: Spacing.screenPaddingH,
-        borderRadius: Radius.lg,
-        padding: Spacing.cardPadding,
-        ...Elevation.medium,
-    },
-    nextJobHeader: {
+    statusRow: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    nextJobIconCircle: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: Brand.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: Spacing.md,
+    pulseDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
     },
-    nextJobInfo: {
+    toggleBtn: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+    },
+
+    // Greeting
+    greetingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+
+    // Active job
+    activeJobHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+
+    // Earnings
+    earningsAmount: {
+        fontSize: 34,
+        fontWeight: '700',
+        marginTop: 4,
+    },
+    earningsSubRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    earningsSub: {
         flex: 1,
     },
-    nextJobTitle: {
-        ...Typography.titleSm,
-        marginBottom: 2,
+    earningsDivider: {
+        width: StyleSheet.hairlineWidth,
+        height: 32,
+        marginHorizontal: 12,
     },
-    nextJobAddress: {
-        ...Typography.bodySm,
-        color: Palette.textSecondary,
-    },
-    nextJobTime: {
-        ...Typography.bodySm,
-        color: Brand.primary,
-        fontWeight: '600',
-    },
-    nextJobDetails: {
-        ...Typography.bodySm,
-        color: Palette.textSecondary,
-        marginTop: Spacing.sm,
-        paddingLeft: 56, // aligned with text after icon
-    },
-    navButton: {
+    payoutRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Brand.primary,
-        paddingVertical: Spacing.md,
-        borderRadius: Radius.default,
-        marginTop: Spacing.lg,
-        gap: Spacing.sm,
     },
-    navButtonText: {
-        ...Typography.button,
-        color: '#fff',
+
+    // Stats
+    statsRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    statChip: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 12,
     },
 
     // Empty state
-    emptyCard: {
-        marginHorizontal: Spacing.screenPaddingH,
-        borderRadius: Radius.lg,
-        padding: Spacing.xl,
+    emptyState: {
         alignItems: 'center',
-        justifyContent: 'center',
-        ...Elevation.low,
-    },
-    emptyText: {
-        ...Typography.bodySm,
-        marginTop: Spacing.sm,
+        paddingVertical: 20,
     },
 
-    // Upcoming Schedule
-    scheduleCard: {
-        marginHorizontal: Spacing.screenPaddingH,
-        borderRadius: Radius.lg,
-        overflow: 'hidden',
-        ...Elevation.low,
-    },
-    scheduleRow: {
+    // Pending requests
+    requestRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: Spacing.cardPadding,
     },
-    scheduleRowBorder: {
-        borderBottomWidth: 1,
-        borderBottomColor: Palette.border,
-    },
-    scheduleIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        justifyContent: 'center',
+    tradeCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         alignItems: 'center',
-        marginRight: Spacing.md,
+        justifyContent: 'center',
     },
-    scheduleInfo: {
+    requestInfo: {
         flex: 1,
+        marginLeft: 12,
     },
-    scheduleTitle: {
-        ...Typography.titleSm,
-        marginBottom: 2,
+    requestTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
-    scheduleSubtitle: {
-        ...Typography.caption,
-        color: Palette.textSecondary,
+    viewBtn: {
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+    },
+
+    // Recent
+    recentRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    recentDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 10,
+    },
+    recentInfo: {
+        flex: 1,
     },
 });

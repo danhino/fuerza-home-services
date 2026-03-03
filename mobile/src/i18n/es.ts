@@ -230,6 +230,24 @@ const es = {
     'jobs.accepted': '¡Trabajo aceptado!',
     'jobs.acceptFailed': 'No se pudo aceptar el trabajo',
 
+    // ── Job Detail ──────────────────────────────────
+    'jobDetail.newJob': 'Nuevo Trabajo',
+    'jobDetail.memberSince': 'Miembro desde',
+    'jobDetail.badgeES': 'ES',
+    'jobDetail.distance': 'de distancia',
+    'jobDetail.issueDescription': 'Descripción del Problema',
+    'jobDetail.showMore': 'Ver más',
+    'jobDetail.showLess': 'Ver menos',
+    'jobDetail.photos': 'Fotos',
+    'jobDetail.flatRate': 'Estimado de Tarifa Fija',
+    'jobDetail.serviceFee': 'Tarifa de Servicio',
+    'jobDetail.bookingFee': 'Tarifa de Reserva',
+    'jobDetail.youReceive': 'Recibes después de 12% tarifa de plataforma',
+    'jobDetail.accept': 'Aceptar Trabajo',
+    'jobDetail.decline': 'Rechazar',
+    'jobDetail.acceptFailed': 'No se pudo aceptar el trabajo',
+    'jobDetail.timerExpired': 'Tiempo expirado — trabajo devuelto al grupo',
+
     // ── Jobs — Invoice ───────────────────────────────
     'jobs.invoice.title': 'Factura Final',
     'jobs.invoice.baseEstimate': 'Estimación Base',
@@ -276,6 +294,25 @@ const es = {
     'home.nextJob': 'Tu Próximo Trabajo',
     'home.startNavigation': 'Iniciar Navegación',
     'home.upcomingSchedule': 'Próximos Trabajos',
+
+    // ── Tech Dashboard ──────────────────────────────
+    'techDash.offline': 'Estás Desconectado',
+    'techDash.goOnline': 'Conectarse',
+    'techDash.online': 'Estás en Línea — Aceptando Trabajos',
+    'techDash.goOffline': 'Desconectarse',
+    'techDash.todayEarnings': 'Ganancias de Hoy',
+    'techDash.weekEarnings': 'Esta Semana',
+    'techDash.pendingPayout': 'Pago Pendiente',
+    'techDash.activeJob': 'Trabajo Activo',
+    'techDash.viewDetails': 'Ver Detalles del Trabajo',
+    'techDash.newRequests': 'Nuevas Solicitudes',
+    'techDash.seeAll': 'Ver todo',
+    'techDash.noRequests': 'Sin solicitudes pendientes. Se te notificará cuando lleguen nuevos trabajos.',
+    'techDash.recentJobs': 'Trabajos Recientes',
+    'techDash.jobsToday': 'trabajos hoy',
+    'techDash.rating': 'calificación',
+    'techDash.acceptRate': 'tasa de aceptación',
+    'techDash.view': 'Ver',
 
     // ── Role Selection ───────────────────────────────
     'roleSelect.title': 'Bienvenido a Fuerza',
