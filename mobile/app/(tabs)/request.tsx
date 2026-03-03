@@ -153,6 +153,7 @@ export default function RequestScreen() {
     const [photos, setPhotos] = useState<string[]>([]);
     const [address, setAddress] = useState('');
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [locationDetected, setLocationDetected] = useState(false);
     const [selectedTile, setSelectedTile] = useState<string | null>(null);
     const [cleaningPriceHint, setCleaningPriceHint] = useState<number | null>(null);
 
@@ -228,6 +229,7 @@ export default function RequestScreen() {
         if (geo) {
             const parts = [geo.streetNumber, geo.street, geo.city, geo.region, geo.postalCode].filter(Boolean);
             setAddress(parts.join(', '));
+            setLocationDetected(true);
         }
     }, []);
 
@@ -312,7 +314,7 @@ export default function RequestScreen() {
         switch (step) {
             case 1: return !!selectedTrade;
             case 2: return description.trim().length > 0;
-            case 3: return address.trim().length > 0;
+            case 3: return locationDetected || address.trim().length >= 10;
             default: return true;
         }
     };
@@ -411,6 +413,7 @@ export default function RequestScreen() {
                             address={address}
                             setAddress={setAddress}
                             location={location}
+                            locationDetected={locationDetected}
                             useCurrentLocation={useCurrentLocation}
                         />
                     )}
@@ -719,20 +722,45 @@ interface StepAddressProps {
     address: string;
     setAddress: (a: string) => void;
     location: { lat: number; lng: number } | null;
+    locationDetected: boolean;
     useCurrentLocation: () => void;
 }
 
-function StepAddress({ theme, address, setAddress, location, useCurrentLocation }: StepAddressProps) {
+function StepAddress({ theme, address, setAddress, location, locationDetected, useCurrentLocation }: StepAddressProps) {
     return (
         <View>
             <Text style={[theme.typography.headingSm, { color: theme.colors.textPrimary, marginBottom: theme.spacing.lg }]}>
                 {t('request.step3')}
             </Text>
 
-            {/* Address input */}
+            {/* Use current location (MODE A — primary) */}
+            <TouchableOpacity
+                onPress={useCurrentLocation}
+                style={[
+                    styles.locationBtn,
+                    {
+                        backgroundColor: theme.colors.accent + '12',
+                        borderRadius: theme.radius.md,
+                        padding: theme.spacing.md,
+                        marginBottom: theme.spacing.lg,
+                    },
+                ]}
+                activeOpacity={0.7}
+            >
+                <Ionicons name="locate" size={20} color={theme.colors.accent} />
+                <Text style={[theme.typography.bodyLg, { color: theme.colors.accent, marginLeft: 10, fontWeight: '600' }]}>
+                    {t('request.useCurrentLocation')}
+                </Text>
+            </TouchableOpacity>
+
+            {/* TODO Phase 5: Replace with Google Places Autocomplete */}
+            {/* Requires: EXPO_PUBLIC_GOOGLE_PLACES_API_KEY in .env */}
+            {/* Package: react-native-google-places-autocomplete */}
             <RNTextInput
                 value={address}
-                onChangeText={setAddress}
+                onChangeText={(text) => {
+                    setAddress(text);
+                }}
                 placeholder={t('request.addressPlaceholder')}
                 placeholderTextColor={theme.colors.textTertiary}
                 style={[
@@ -747,17 +775,22 @@ function StepAddress({ theme, address, setAddress, location, useCurrentLocation 
                 ]}
             />
 
-            {/* Use current location */}
-            <TouchableOpacity
-                onPress={useCurrentLocation}
-                style={[styles.locationBtn, { marginTop: theme.spacing.md }]}
-                activeOpacity={0.7}
-            >
-                <Ionicons name="locate" size={18} color={theme.colors.accent} />
-                <Text style={[theme.typography.bodySm, { color: theme.colors.accent, marginLeft: 8 }]}>
-                    {t('request.useCurrentLocation')}
+            {/* Location detected badge (MODE A success) */}
+            {locationDetected && (
+                <View style={[styles.detectedBadge, { marginTop: theme.spacing.sm }]}>
+                    <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+                    <Text style={[theme.typography.caption, { color: '#22C55E', marginLeft: 6, fontWeight: '600' }]}>
+                        {t('request.locationDetected')}
+                    </Text>
+                </View>
+            )}
+
+            {/* Helper tip (MODE B hint) */}
+            {!locationDetected && (
+                <Text style={[theme.typography.caption, { color: theme.colors.textTertiary, marginTop: theme.spacing.sm }]}>
+                    {t('request.addressTip')}
                 </Text>
-            </TouchableOpacity>
+            )}
 
             {/* Map preview */}
             {location && (
@@ -1027,6 +1060,10 @@ const styles = StyleSheet.create({
         padding: 14,
     },
     locationBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    detectedBadge: {
         flexDirection: 'row',
         alignItems: 'center',
     },
