@@ -34,6 +34,7 @@ import adminRoutes from './routes/admin.routes';
 import triageRoutes from './routes/triage.routes';
 import paymentRoutes from './routes/payment.routes';
 import changeOrderRoutes from './routes/changeOrder.routes';
+import technicianRoutes from './routes/technician.routes';
 
 // ... (existing code)
 
@@ -44,6 +45,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/triage', triageRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/change-orders', changeOrderRoutes);
+app.use('/api/technicians', technicianRoutes);
 
 app.get('/', (req, res) => {
   res.send('Fuerza Home Services API is running');

@@ -106,8 +106,36 @@ export function TechnicianMainDashboard() {
         if (toggling) return;
         setToggling(true);
         const newStatus = !isOnline;
+
+        // Gate: check Connect status before going online
+        if (newStatus === true) {
+            try {
+                const { data: connectData } = await api.get('/payments/connect/status');
+                if (!connectData.isSetup) {
+                    Alert.alert(
+                        language === 'es' ? 'Configuración requerida' : 'Setup Required',
+                        language === 'es'
+                            ? 'Debes configurar tu cuenta de pagos antes de aceptar trabajos.'
+                            : 'You must set up your payout account before accepting jobs.',
+                        [
+                            { text: language === 'es' ? 'Cancelar' : 'Cancel', style: 'cancel' },
+                            {
+                                text: language === 'es' ? 'Configurar' : 'Set Up',
+                                onPress: () => router.push('/(tabs)/profile'),
+                            },
+                        ]
+                    );
+                    setToggling(false);
+                    return;
+                }
+            } catch {
+                // If check fails, allow going online (don't block on network errors)
+                console.log('[Connect] Status check failed, allowing toggle');
+            }
+        }
+
         try {
-            await api.put('/api/technicians/me/status', { isOnline: newStatus });
+            await api.put('/technicians/me/status', { isOnline: newStatus });
             // Update store ONLY after API confirms success
             useAuthStore.getState().setIsOnline(newStatus);
         } catch {
@@ -121,7 +149,7 @@ export function TechnicianMainDashboard() {
             // Always re-enable the button regardless of success or failure
             setToggling(false);
         }
-    }, [isOnline, toggling, language]);
+    }, [isOnline, toggling, language, router]);
 
     // ── Re-fetch jobs on focus ────────────────────────────────────────────────
 

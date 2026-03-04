@@ -322,8 +322,43 @@ const en = {
     'roleSelect.provideServiceDesc': 'Grow your business, connect with homeowners, and manage your jobs.',
     'roleSelect.alreadyHaveAccount': 'Already have an account?',
 
+    // ── Tracking ─────────────────────────────────────
+    'tracking.title': 'Live Tracking',
+    'tracking.eta': 'Arriving in ~12 min',
+    'tracking.matched': 'Matched',
+    'tracking.enRoute': 'En Route',
+    'tracking.arrived': 'Arrived',
+    'tracking.working': 'Working',
+    'tracking.complete': 'Complete',
+    'tracking.jobSummary': 'Job Summary',
+    'tracking.flatRate': 'Flat Rate',
+    'tracking.problem': "There's a problem",
+    'tracking.jobComplete': 'Job Complete!',
+    'tracking.redirecting': 'Redirecting to receipt...',
+    'tracking.call': 'Call',
+    'tracking.message': 'Message',
+
     // ── Earnings ─────────────────────────────────────
     'earnings.comingSoon': 'Earnings dashboard coming soon',
+
+    // ── Receipt ──────────────────────────────────────
+    'receipt.serviceComplete': 'Service Complete',
+    'receipt.completedOn': 'Completed on',
+    'receipt.rateYourTech': 'Rate your technician',
+    'receipt.submitRating': 'Submit Rating',
+    'receipt.ratingSubmitted': 'Thank you for your rating!',
+    'receipt.finalReceipt': 'Final Receipt',
+    'receipt.service': 'Service',
+    'receipt.bookingFee': 'Booking Fee',
+    'receipt.totalCharged': 'Total Charged',
+    'receipt.paymentMethod': 'Payment Method',
+    'receipt.cardEnding': 'Card ending in',
+    'receipt.priceChangeLog': 'Price Change Log',
+    'receipt.originalEstimate': 'Original estimate',
+    'receipt.finalAgreed': 'Final agreed price',
+    'receipt.jobDetails': 'Job Details',
+    'receipt.done': 'Done',
+    'receipt.share': 'Share Receipt',
 
     // ── Tabs ─────────────────────────────────────────
     'tabs.home': 'Home',

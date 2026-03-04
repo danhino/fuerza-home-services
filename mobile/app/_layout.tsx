@@ -4,6 +4,8 @@ import { useAuthStore } from '../src/store/useAuthStore';
 import { View, ActivityIndicator } from 'react-native';
 import { useLanguageStore } from '../src/i18n';
 import { useThemeStore } from '../src/store/useThemeStore';
+import { StripeProvider } from '@stripe/stripe-react-native';
+import { STRIPE_PUBLISHABLE_KEY } from '../src/constants/Config';
 
 export default function RootLayout() {
     const { isAuthenticated } = useAuthStore();
@@ -32,5 +34,9 @@ export default function RootLayout() {
         }
     }, [isAuthenticated, segments, isMounted]);
 
-    return <Slot />;
+    return (
+        <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+            <Slot />
+        </StripeProvider>
+    );
 }

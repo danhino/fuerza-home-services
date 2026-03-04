@@ -323,8 +323,43 @@ const es = {
     'roleSelect.provideServiceDesc': 'Haz crecer tu negocio, conecta con propietarios y administra tus trabajos.',
     'roleSelect.alreadyHaveAccount': '¿Ya tienes cuenta?',
 
+    // ── Tracking ─────────────────────────────────────
+    'tracking.title': 'Seguimiento en Vivo',
+    'tracking.eta': 'Llegando en ~12 min',
+    'tracking.matched': 'Asignado',
+    'tracking.enRoute': 'En Camino',
+    'tracking.arrived': 'Llegó',
+    'tracking.working': 'Trabajando',
+    'tracking.complete': 'Completado',
+    'tracking.jobSummary': 'Resumen del Trabajo',
+    'tracking.flatRate': 'Tarifa Fija',
+    'tracking.problem': 'Hay un problema',
+    'tracking.jobComplete': '¡Trabajo Completado!',
+    'tracking.redirecting': 'Redirigiendo al recibo...',
+    'tracking.call': 'Llamar',
+    'tracking.message': 'Mensaje',
+
     // ── Earnings ─────────────────────────────────────
     'earnings.comingSoon': 'Panel de ganancias próximamente',
+
+    // ── Receipt ──────────────────────────────────────
+    'receipt.serviceComplete': 'Servicio Completado',
+    'receipt.completedOn': 'Completado el',
+    'receipt.rateYourTech': 'Califica a tu técnico',
+    'receipt.submitRating': 'Enviar Calificación',
+    'receipt.ratingSubmitted': '¡Gracias por tu calificación!',
+    'receipt.finalReceipt': 'Recibo Final',
+    'receipt.service': 'Servicio',
+    'receipt.bookingFee': 'Tarifa de Reserva',
+    'receipt.totalCharged': 'Total Cobrado',
+    'receipt.paymentMethod': 'Método de Pago',
+    'receipt.cardEnding': 'Tarjeta terminada en',
+    'receipt.priceChangeLog': 'Historial de Cambios de Precio',
+    'receipt.originalEstimate': 'Presupuesto original',
+    'receipt.finalAgreed': 'Precio final acordado',
+    'receipt.jobDetails': 'Detalles del Trabajo',
+    'receipt.done': 'Listo',
+    'receipt.share': 'Compartir Recibo',
 
     // ── Tabs ─────────────────────────────────────────
     'tabs.home': 'Inicio',

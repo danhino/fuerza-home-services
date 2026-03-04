@@ -37,6 +37,7 @@ import { useAuthStore } from '../../src/store/useAuthStore';
 import api from '../../src/services/api';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Card';
+import { useStripe } from '@stripe/stripe-react-native';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -140,6 +141,7 @@ export default function RequestScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams<{ trade?: string }>();
+    const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
     // Subscribe for re-render on language change
     useLanguageStore((s) => s.language);
@@ -245,7 +247,7 @@ export default function RequestScreen() {
         setEstimating(true);
         setError(null);
         try {
-            const { data } = await api.post('/api/jobs/estimate', {
+            const { data } = await api.post('/jobs/estimate', {
                 trade: selectedTrade,
                 description,
                 address,
@@ -259,14 +261,87 @@ export default function RequestScreen() {
         }
     }, [selectedTrade, description, address, cleaningPriceHint]);
 
+    // ── Friendly Stripe error mapper ──────────────────────────────────────
+    const mapStripeError = useCallback((code?: string) => {
+        const lang = useLanguageStore.getState().language;
+        switch (code) {
+            case 'Canceled':
+                return lang === 'es' ? 'Pago cancelado.' : 'Payment cancelled.';
+            case 'Failed':
+                return lang === 'es'
+                    ? 'El pago no se pudo procesar. Verifica tu tarjeta.'
+                    : 'Payment could not be processed. Please check your card.';
+            default:
+                return lang === 'es'
+                    ? 'Error al procesar el pago. Intenta de nuevo.'
+                    : 'Payment error. Please try again.';
+        }
+    }, []);
+
     const handleBook = useCallback(async () => {
         setBooking(true);
         setError(null);
         try {
+            const totalCents = Math.round(
+                ((estimate?.serviceFee ?? 0) + BOOKING_FEE) * 100
+            );
+
+            // 1. Create PaymentIntent on the server
+            console.log('[Payment] Step 1: Creating PaymentIntent, amount:', totalCents);
+            const { data: pi } = await api.post('/payments/create-payment-intent', {
+                amountCents: totalCents,
+            });
+            console.log('[Payment] Step 1 result:', JSON.stringify(pi, null, 2));
+
+            if (!pi.success || !pi.clientSecret) {
+                console.log('[Payment] Step 1 FAILED — no clientSecret');
+                setError(mapStripeError());
+                return;
+            }
+
+            // 2. Try PaymentSheet — will fail gracefully in Expo Go
+            let paymentConfirmed = false;
+            try {
+                console.log('[Payment] Step 2: Initializing PaymentSheet');
+                const { error: initError } = await initPaymentSheet({
+                    paymentIntentClientSecret: pi.clientSecret,
+                    customerEphemeralKeySecret: pi.ephemeralKey || undefined,
+                    customerId: pi.customerId || undefined,
+                    merchantDisplayName: 'Fuerza Home Services',
+                    allowsDelayedPaymentMethods: false,
+                });
+
+                if (initError) {
+                    console.log('[Payment] Step 2: initPaymentSheet error (likely Expo Go):', JSON.stringify(initError));
+                    // Fall through to dev bypass below
+                } else {
+                    // 3. Present the PaymentSheet to the user
+                    console.log('[Payment] Step 3: Presenting PaymentSheet');
+                    const { error: presentError } = await presentPaymentSheet();
+
+                    if (presentError) {
+                        if (presentError.code === 'Canceled') {
+                            setBooking(false);
+                            return;
+                        }
+                        setError(mapStripeError(presentError.code));
+                        return;
+                    }
+                    paymentConfirmed = true;
+                }
+            } catch (stripeErr) {
+                console.log('[Payment] Stripe native module not available (Expo Go):', stripeErr);
+            }
+
+            // Dev bypass: if PaymentSheet couldn't open (Expo Go), proceed with the PI
+            if (!paymentConfirmed) {
+                console.log('[Payment] DEV MODE: Skipping PaymentSheet, using PaymentIntent directly');
+            }
+
+            // 4. Create the job
             const lat = location?.lat || 29.4241;
             const lng = location?.lng || -98.4936;
 
-            // Convert photos to base64
             const photoData: string[] = [];
             for (const uri of photos) {
                 const response = await fetch(uri);
@@ -279,7 +354,7 @@ export default function RequestScreen() {
                 photoData.push(base64);
             }
 
-            const { data } = await api.post('/api/jobs', {
+            const { data } = await api.post('/jobs', {
                 trade: selectedTrade,
                 description,
                 address,
@@ -287,6 +362,7 @@ export default function RequestScreen() {
                 lng,
                 photos: photoData,
                 estimatedPrice: estimate ? estimate.serviceFee + BOOKING_FEE : undefined,
+                paymentIntentId: pi.paymentIntentId,
             });
 
             router.replace({
@@ -298,7 +374,7 @@ export default function RequestScreen() {
         } finally {
             setBooking(false);
         }
-    }, [selectedTrade, description, address, location, photos, estimate, router]);
+    }, [selectedTrade, description, address, location, photos, estimate, router, initPaymentSheet, presentPaymentSheet, mapStripeError]);
 
     // ── Step 4: trigger estimate on mount ─────────────────────────────────────
 

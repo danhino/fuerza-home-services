@@ -66,6 +66,7 @@ model User {
   updatedAt         DateTime           @updatedAt
   technicianProfile TechnicianProfile?
   customerProfile   CustomerProfile?
+  stripeCustomerId  String?
 }
 
 model TechnicianProfile {
@@ -79,6 +80,7 @@ model TechnicianProfile {
   serviceRadius     Int      @default(10) // in km or miles
   completedJobs     Int      @default(0)
   availabilityHours String?
+  stripeConnectAccountId String?
   jobs              Job[]
 }
 
@@ -126,6 +128,10 @@ model Job {
   receiptEmailedAt       DateTime?
   warrantyDays           Int?
   review                 Review?
+  paymentIntentId        String?
+  payoutStatus           String?
+  payoutAmount           Int?
+  transferId             String?
 }
 
 model Review {

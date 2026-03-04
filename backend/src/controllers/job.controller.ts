@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { PrismaClient, JobStatus } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { socketService } from '../services/socket.service';
-import { captureHold } from '../services/payment.service';
+import { captureHold, createPayout } from '../services/payment.service';
 
 const prisma = new PrismaClient();
 
@@ -91,6 +91,16 @@ export const capturePayment = async (req: AuthRequest, res: Response) => {
         socketService.emitToUser(job.customerId, 'job:payment', { job: updatedJob });
         if (job.technicianId) {
             socketService.emitToUser(job.technicianId, 'job:payment', { job: updatedJob });
+        }
+
+        // Auto-payout: transfer technician's portion (88%) to their Connect account
+        if (job.technicianId) {
+            const payoutResult = await createPayout(id);
+            if (payoutResult.success) {
+                console.log(`[Payout] Transferred $${(payoutResult.payoutAmount! / 100).toFixed(2)} to technician ${job.technicianId}`);
+            } else {
+                console.error(`[Payout] Failed for job ${id}:`, payoutResult.error);
+            }
         }
 
         res.json(updatedJob);

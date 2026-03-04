@@ -10,7 +10,7 @@ export const useTechnicianStore = create<TechnicianState>((set) => ({
     isOnline: false,
     updateStatus: async (isOnline) => {
         try {
-            await api.put('/users/technician/status', { isOnline });
+            await api.put('/technicians/me/status', { isOnline });
             set({ isOnline });
         } catch (error) {
             console.error('Failed to update status', error);
