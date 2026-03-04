@@ -157,7 +157,7 @@ export async function createAccountLink(
     accountId: string,
     returnUrl: string,
     refreshUrl: string
-): Promise<string | null> {
+): Promise<{ url?: string; error?: string }> {
     try {
         const link = await stripe.accountLinks.create({
             account: accountId,
@@ -165,10 +165,10 @@ export async function createAccountLink(
             return_url: returnUrl,
             refresh_url: refreshUrl,
         });
-        return link.url;
+        return { url: link.url };
     } catch (err: any) {
         console.error('[PaymentService] createAccountLink failed:', err.message);
-        return null;
+        return { error: err.message };
     }
 }
 

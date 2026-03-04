@@ -142,21 +142,37 @@ router.post('/connect/onboard', authenticate, async (req: Request, res: Response
 
         // Generate onboarding link
         const { returnUrl, refreshUrl } = req.body;
-        const url = await createAccountLink(
+        const resultUrl = await createAccountLink(
             result.accountId,
-            returnUrl || 'fuerza-home-services://profile',
-            refreshUrl || 'fuerza-home-services://profile'
+            returnUrl || 'https://localhost:3000/api/payments/connect/return',
+            refreshUrl || 'https://localhost:3000/api/payments/connect/refresh'
         );
 
-        if (!url) {
-            return res.status(500).json({ success: false, error: 'Failed to create onboarding link' });
+        if (resultUrl.error) {
+            return res.status(500).json({ success: false, error: resultUrl.error });
         }
 
-        return res.json({ success: true, url, accountId: result.accountId });
+        return res.json({ success: true, url: resultUrl.url, accountId: result.accountId });
     } catch (err: any) {
         console.error('[PaymentRoute] /connect/onboard error:', err);
         return res.status(500).json({ success: false, error: 'Internal server error' });
     }
+});
+
+/**
+ * GET /api/payments/connect/return
+ * Redirects back to the app after Stripe onboarding.
+ */
+router.get('/connect/return', (req: Request, res: Response) => {
+    res.redirect('fuerza-home-services://profile');
+});
+
+/**
+ * GET /api/payments/connect/refresh
+ * Redirects back to the app if Stripe onboarding link expires.
+ */
+router.get('/connect/refresh', (req: Request, res: Response) => {
+    res.redirect('fuerza-home-services://profile');
 });
 
 /**

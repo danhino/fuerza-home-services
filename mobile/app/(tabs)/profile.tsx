@@ -57,9 +57,12 @@ export default function ProfileScreen() {
     const handleSetupPayouts = useCallback(async () => {
         setOnboarding(true);
         try {
+            // Get the base API URL to pass real HTTP endpoints to Stripe
+            // which redirect back to our custom deep links
+            const apiUrl = api.defaults.baseURL || 'http://localhost:3000/api';
             const { data } = await api.post('/payments/connect/onboard', {
-                returnUrl: 'fuerza-home-services://profile',
-                refreshUrl: 'fuerza-home-services://profile',
+                returnUrl: `${apiUrl}/payments/connect/return`,
+                refreshUrl: `${apiUrl}/payments/connect/refresh`,
             });
 
             if (data.success && data.url) {
