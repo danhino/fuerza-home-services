@@ -134,9 +134,13 @@ export async function createConnectAccount(
             metadata: { fuerzaUserId: userId },
         });
 
-        await prisma.technicianProfile.update({
+        await prisma.technicianProfile.upsert({
             where: { userId },
-            data: { stripeConnectAccountId: account.id },
+            update: { stripeConnectAccountId: account.id },
+            create: {
+                userId,
+                stripeConnectAccountId: account.id,
+            },
         });
 
         return { accountId: account.id };

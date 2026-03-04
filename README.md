@@ -1,34 +1,33 @@
 # Fuerza Home Services
 
-**Fuerza Home Services** is an on-demand home services platform that connects customers with skilled technicians (plumbers, electricians, HVAC techs, pool service pros) in real time. Think of it as an Uber-style experience for home repairs — customers request help, nearby technicians accept the job, and everything is tracked live on a map. Fully bilingual (English / Spanish).
+**Fuerza Home Services** is a production-quality on-demand platform built on React Native with a custom design token system (Colors, Typography, Spacing, Theme) providing full light/dark mode support. It connects customers with skilled technicians across 6 trade categories in real time. Think of it as an Uber-style experience for home repairs — customers request help, nearby technicians accept the job, and everything is tracked live on a map. Fully bilingual (English / Spanish).
 
 ---
 
 ## ✨ Features
 
 ### 📱 Mobile App (Customer)
-- **Map-first home screen** — Uber-style dashboard with full-screen MapView, trade-colored technician pins, floating header with address pill, and a pulsing online-count indicator
-- **Trade filter chips** — horizontal chip bar to filter by trade (All, Plumbing, Electrical, HVAC, Pool) with color-coded map pins (blue, yellow, purple, teal)
-- **Technician callouts** — tap a map pin to see technician name, trade, and star rating
-- **Multi-step service request wizard** — 4-step checkout flow with animated progress bar:
-  1. Select Trade (2-column card grid with icons + descriptions)
-  2. Describe Issue (multiline text + photo picker with auto-compression)
-  3. Service Address (input + reverse geocode + static map preview)
-  4. Review & Get Estimate → fee breakdown → Confirm & Book
-- **AI-powered triage** — preliminary estimate screen powered by backend triage engine
-- **Photo auto-compression** — photos resized (800px) and compressed (0.6 quality) on-device before upload
-- **Live job tracking** — watch your technician's location update on the map via WebSocket
-- **Job history** — view all past and active service requests with status pills
-- **Post-payment features** — leave reviews and view receipts after job completion
+- **Map-first experience with 6 trade categories**: Plumbing, Electrical, HVAC, Pool Service, House Cleaning, General Handyman
+- **One-click issue tiles** per trade that pre-populate the description field
+- **House Cleaning size-based pricing** (Small $125 → XL $325)
+- **Multi-step service request wizard** (4 steps) with animated progress bar
+- **Photo attachment with on-device compression** (800px, 0.6 quality)
+- **Address autocompletion** via reverse geocoding ("Use my current location") or manual entry
+- **Flat-rate estimate** shown before confirming (trade-specific rates)
+- **Stripe PaymentSheet integration** for booking fee + service fee
+- **Live job tracking map** with real-time technician location via Socket.io
+- **Progress stepper**: Matched → En Route → Arrived → Working → Complete
+- **Formal price renegotiation flow** with full audit trail on receipt
+- **Post-job rating and receipt** with price change history
 
 ### 🔧 Mobile App (Technician)
-- **Go online / offline toggle** — control your availability
-- **Real-time job alerts** — receive new job requests instantly via Socket.io
-- **Earnings display** — see estimated earnings on job cards before accepting
-- **Spanish-speaker notifications** — get an alert when a Spanish-speaking customer creates a job, plus an "ES" badge on the job card
-- **Rich job details** — see customer name, address, description, and a scrollable photo gallery before accepting
-- **Accept & manage jobs** — view open requests and accept them with one tap
-- **Location broadcasting** — your position streams to customers while online
+- **Online/Offline toggle** with store-driven state (not optimistic)
+- **45-second countdown timer** on new job requests with auto-decline
+- **Haversine distance calculation** from technician to job address
+- **Trade-colored job cards** with "ES" badge for Spanish-speaking customers
+- **useFocusEffect refresh** — dashboard always shows live data on focus
+- **Accept flow** wires directly to active job card on dashboard
+- **Stripe Connect Express** payout setup gate before going online
 
 ### 🖥️ Admin Console (Web)
 - **User management** — view all registered customers and technicians
@@ -69,7 +68,19 @@
 
 ---
 
-## 📂 Project Structure
+## � Trade Categories & Pricing
+| Trade | Map Pin | Flat Rate | Issue Tiles |
+|-------|---------|-----------|-------------|
+| Plumbing | 🔵 Blue | $140 | Leak under sink, Replace toilet, Shower Shower lever broken, Clogged drain, Water heater |
+| Electrical | 🟡 Yellow | $165 | Replace outlet, Ceiling fan, EV charger, Breaker, Light switch |
+| HVAC | 🟣 Purple | $200 | Dirty filters, Not cooling, Water leak, Not heating, Not starting |
+| Pool Service | 🩵 Teal | $120 | Pool cleaning, Filter, Pump, Stains, Algae, Cloudy water, Lights |
+| House Cleaning | 🟢 Green | $125–$325 | Small, Medium, Large, XL (size-based) |
+| General Handyman | 🟠 Orange | $95 | Furniture, TV mount, Drywall, Door lock, Caulking, Other |
+
+---
+
+## �📂 Project Structure
 
 ```
 fuerza-home-services/
@@ -102,11 +113,12 @@ fuerza-home-services/
 │   │   ├── (tabs)/             # Tab screens
 │   │   │   ├── index.tsx       # Role-based dashboard switch
 │   │   │   ├── request.tsx     # Multi-step service request wizard
-│   │   │   ├── jobs.tsx        # Job list & tracking
-│   │   │   ├── earnings.tsx    # Earnings dashboard (coming soon)
+│   │   │   ├── tracking.tsx    # Live map tracking & status updates
+│   │   │   ├── jobs.tsx        # Technician job list
+│   │   │   ├── receipt.tsx     # Post-job receipt & review
+│   │   │   ├── estimate-change.tsx # Price renegotiation flow
+│   │   │   ├── job-detail.tsx  # Enhanced details for active jobs
 │   │   │   └── profile.tsx     # User profile & settings
-│   │   ├── triage.tsx          # AI triage / preliminary estimate screen
-│   │   └── estimate.tsx        # Detailed estimate view
 │   └── src/
 │       ├── components/
 │       │   ├── ui/             # Reusable UI primitives (10 components)
@@ -120,19 +132,8 @@ fuerza-home-services/
 │       │   │   ├── StatusPill.tsx      # 7 job statuses with icons
 │       │   │   ├── SectionHeader.tsx   # Title + "See all" link
 │       │   │   ├── LoadingOverlay.tsx  # Full-screen spinner
-│       │   │   └── index.ts           # Barrel exports
-│       │   └── stitch_ui/     # Stitch-designed layout components
-│       │       ├── HomeownerDashboard.tsx   # Map-first customer home
-│       │       ├── TechnicianMainDashboard.tsx
-│       │       ├── GreetingHeader.tsx
-│       │       ├── CategoryChip.tsx
-│       │       ├── ProCard.tsx
-│       │       ├── PromoBanner.tsx
-│       │       ├── RoleCard.tsx
-│       │       ├── ScreenHeader.tsx
-│       │       ├── StatusBadge.tsx
-│       │       └── index.ts
-│       ├── constants/          # Design tokens
+│       │   └── index.ts               # Barrel exports
+│       ├── constants/                 # Design token system
 │       │   ├── Colors.ts       # 50+ semantic tokens, light/dark themes
 │       │   ├── Typography.ts   # 18 pre-composed text styles
 │       │   ├── Spacing.ts      # Scale, radii, shadows, z-index
@@ -165,8 +166,11 @@ fuerza-home-services/
 
 | Layer        | Technology                                        |
 |--------------|---------------------------------------------------|
-| **Mobile**   | React Native, Expo, Expo Router, Zustand, Axios   |
-| **Maps**     | react-native-maps, expo-location                  |
+| **Mobile**   | React Native, Expo, Expo Router, Axios            |
+| **State**    | Zustand (useAuth, useJob, useMap, useLocation, useLanguage, useTechnician) |
+| **Design**   | Custom token system (Colors, Typography, Spacing, Theme, useTheme hook) |
+| **Maps**     | react-native-maps with 6 trade-colored custom pins, expo-location |
+| **Payments** | Stripe PaymentSheet (customer) + Stripe Connect Express (technician payouts) |
 | **Photos**   | expo-image-picker, expo-image-manipulator          |
 | **i18n**     | Custom Zustand store + AsyncStorage persistence   |
 | **Real-time**| Socket.io (server) + socket.io-client (mobile)    |
@@ -174,7 +178,24 @@ fuerza-home-services/
 | **Database** | PostgreSQL + Prisma ORM                           |
 | **Auth**     | JWT (jsonwebtoken) + bcryptjs                     |
 | **Admin Web**| React, Vite, TypeScript, Zustand, Lucide Icons    |
-| **Design**   | Custom token system (Colors, Typography, Spacing, Theme) |
+
+---
+
+## 🏗️ Architecture
+The home tab renders a role-specific dashboard based on user.role from 
+useAuthStore. CUSTOMER renders HomeownerDashboard (map-first, 6 trade 
+categories, live technician pins). TECHNICIAN renders 
+TechnicianMainDashboard (online/offline toggle, job queue, earnings 
+summary). Both components are self-contained — all data comes from 
+Zustand stores, no props required.
+
+---
+
+## ⚠️ Known Limitations (Development)
+- Stripe PaymentSheet requires a native development build (`npx expo run:ios` or EAS Build). In Expo Go, payments are bypassed for development testing.
+- Address autocomplete uses reverse geocoding only. Google Places Autocomplete is planned for Phase 5 (requires EXPO_PUBLIC_GOOGLE_PLACES_API_KEY).
+- Technician distance calculation requires job coordinates from the API (currently stubbed, wires up in Phase 2C).
+- Push notifications require a physical device and a development build.
 
 ---
 
