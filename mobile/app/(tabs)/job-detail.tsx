@@ -121,15 +121,22 @@ export default function JobDetailScreen() {
             setCountdown((prev) => {
                 if (prev <= 1) {
                     clearInterval(interval);
-                    Alert.alert(t('jobDetail.timerExpired'));
-                    router.back();
                     return 0;
                 }
                 return prev - 1;
             });
         }, 1000);
         return () => clearInterval(interval);
-    }, [isNew, router]);
+    }, [isNew]);
+
+    // Handle timer expiry outside the state updater to avoid
+    // "Cannot update a component while rendering a different component"
+    useEffect(() => {
+        if (isNew && countdown === 0) {
+            Alert.alert(t('jobDetail.timerExpired'));
+            router.back();
+        }
+    }, [countdown, isNew, router]);
 
     // Pulse animation for "New Job" banner
     useEffect(() => {
@@ -154,10 +161,11 @@ export default function JobDetailScreen() {
     const tradeColor = TRADE_COLOR[trade] || '#3B82F6';
     const tradeLabel = TRADE_LABEL[trade] || 'home.map.plumbing';
 
-    // Estimate
-    const serviceFee = job?.estimate?.currentAmount || job?.estimateLow || 0;
-    const total = serviceFee + BOOKING_FEE;
-    const techReceives = total * (1 - PLATFORM_FEE_RATE);
+    // Estimate — prefer estimate.currentAmount, fall back to estimateLow
+    const rawServiceFee = job?.estimate?.currentAmount ?? job?.estimateLow ?? null;
+    const serviceFee = rawServiceFee; // null means "no estimate available"
+    const total = serviceFee != null ? serviceFee + BOOKING_FEE : null;
+    const techReceives = total != null ? total * (1 - PLATFORM_FEE_RATE) : null;
 
     // Distance (client-side)
     const distance = useMemo((): number | null => {
@@ -375,7 +383,7 @@ export default function JobDetailScreen() {
                         {t('jobDetail.flatRate')}
                     </Text>
                     <Text style={[styles.priceDisplay, { color: theme.colors.textPrimary }]}>
-                        ${serviceFee.toFixed(2)}
+                        {serviceFee != null ? `$${serviceFee.toFixed(2)}` : '$—'}
                     </Text>
 
                     <View style={[styles.divider, { backgroundColor: theme.colors.divider, marginVertical: theme.spacing.md }]} />
@@ -385,7 +393,7 @@ export default function JobDetailScreen() {
                             {t('jobDetail.serviceFee')}
                         </Text>
                         <Text style={[theme.typography.bodySm, { color: theme.colors.textPrimary }]}>
-                            ${serviceFee.toFixed(2)}
+                            {serviceFee != null ? `$${serviceFee.toFixed(2)}` : '$—'}
                         </Text>
                     </View>
                     <View style={styles.feeRow}>
@@ -406,7 +414,7 @@ export default function JobDetailScreen() {
                                 {t('jobDetail.youReceive')}
                             </Text>
                             <Text style={[theme.typography.titleLg, { color: '#22C55E' }]}>
-                                ${techReceives.toFixed(2)}
+                                {techReceives != null ? `$${techReceives.toFixed(2)}` : '$—'}
                             </Text>
                         </View>
                     </View>

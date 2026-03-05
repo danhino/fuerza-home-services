@@ -3,6 +3,8 @@ import { PrismaClient, JobStatus } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { socketService } from '../services/socket.service';
 import { captureHold, createPayout } from '../services/payment.service';
+import { calculatePricing, getTradeEstimate, getEstimateForTrade } from '../services/pricing.service';
+import { sendNewJobAlert, sendJobStatusAlert } from '../services/push.service';
 
 const prisma = new PrismaClient();
 
@@ -114,7 +116,10 @@ export const capturePayment = async (req: AuthRequest, res: Response) => {
 export const createJob = async (req: AuthRequest, res: Response) => {
     try {
         const customerId = req.user.userId;
-        const { trade, description, address, lat, lng, photos, issueTag, videoUrl, holdRef, holdAmountCents, estimateLow, estimateHigh } = req.body;
+        const { trade, description, address, lat, lng, photos, issueTag, videoUrl, holdRef, holdAmountCents, estimateLow, estimateHigh, estimatedPrice, paymentIntentId, cleaningSize } = req.body;
+
+        // Calculate pricing breakdown — uses size-based rate for House Cleaning
+        const pricing = getEstimateForTrade(trade, cleaningSize);
 
         const job = await prisma.job.create({
             data: {
@@ -134,8 +139,15 @@ export const createJob = async (req: AuthRequest, res: Response) => {
                     holdAmount: holdAmountCents || null,
                     paymentHoldStatus: 'HELD',
                 } : {}),
-                estimateLow: estimateLow || null,
-                estimateHigh: estimateHigh || null,
+                estimateLow: estimateLow || estimatedPrice || pricing.serviceFee,
+                estimateHigh: estimateHigh || estimatedPrice || pricing.serviceFee,
+                paymentIntentId: paymentIntentId || null,
+                cleaningSize: cleaningSize || null,
+                // Pricing breakdown
+                serviceFee: pricing.serviceFee,
+                bookingFee: pricing.bookingFee,
+                platformCommission: pricing.platformCommission,
+                technicianPayout: pricing.technicianPayout,
             },
         });
 
@@ -152,6 +164,14 @@ export const createJob = async (req: AuthRequest, res: Response) => {
             customerName: customer?.name,
         });
 
+        // Push notification to online technicians (fire and forget)
+        const onlineTechs = await prisma.technicianProfile.findMany({
+            where: { isOnline: true },
+            select: { userId: true },
+        });
+        const techIds = onlineTechs.map(t => t.userId);
+        sendNewJobAlert(techIds, job).catch(console.error);
+
         res.status(201).json(job);
     } catch (error) {
         res.status(500).json({ error: 'Failed to create job' });
@@ -166,7 +186,10 @@ export const getOpenJobs = async (req: AuthRequest, res: Response) => {
                 status: JobStatus.REQUESTED,
                 technicianId: null,
             },
-            include: { customer: { include: { user: { select: { name: true, firstName: true, lastName: true, preferredLanguage: true } } } } },
+            include: {
+                estimate: true,
+                customer: { include: { user: { select: { name: true, firstName: true, lastName: true, preferredLanguage: true } } } },
+            },
         });
         res.json(jobs);
     } catch (error) {
@@ -189,6 +212,7 @@ export const getJobs = async (req: AuthRequest, res: Response) => {
         const jobs = await prisma.job.findMany({
             where,
             include: {
+                estimate: true,
                 customer: { include: { user: true } },
                 technician: { include: { user: true } }
             },
@@ -230,8 +254,39 @@ export const updateJobStatus = async (req: AuthRequest, res: Response) => {
         });
 
         socketService.emitToUser(job.customerId, 'job:status', { jobId, status });
+
+        // Push notification to customer (fire and forget)
+        sendJobStatusAlert(job.customerId, status, jobId).catch(console.error);
+
         res.json(job);
     } catch (error) {
         res.status(500).json({ error: 'Failed to update status' });
+    }
+};
+
+/**
+ * POST /api/jobs/estimate
+ * Body: { trade, issueDescription? }
+ * Returns a flat-rate estimate with full pricing breakdown.
+ */
+export const getEstimate = async (req: AuthRequest, res: Response) => {
+    try {
+        const { trade, cleaningSize } = req.body;
+        if (!trade) {
+            return res.status(400).json({ error: 'Trade is required' });
+        }
+
+        const pricing = getEstimateForTrade(trade, cleaningSize);
+
+        res.json({
+            success: true,
+            trade,
+            cleaningSize: cleaningSize || null,
+            estimatedPrice: pricing.serviceFee,
+            ...pricing,
+        });
+    } catch (error) {
+        console.error('Get Estimate Error:', error);
+        res.status(500).json({ error: 'Failed to generate estimate' });
     }
 };

@@ -2,8 +2,12 @@ import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { socketService } from '../services/socket.service';
+import { calculatePricing } from '../services/pricing.service';
 
 const prisma = new PrismaClient();
+
+/** Job statuses that allow change order creation */
+const CHANGE_ORDER_ALLOWED_STATUSES = ['MATCHED', 'EN_ROUTE', 'ARRIVED', 'WORKING'];
 
 export const createChangeOrder = async (req: AuthRequest, res: Response) => {
     try {
@@ -32,6 +36,23 @@ export const createChangeOrder = async (req: AuthRequest, res: Response) => {
 
         if (job.technicianId !== technicianId) {
             return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        // Only allow change orders during active job statuses
+        if (!CHANGE_ORDER_ALLOWED_STATUSES.includes(job.status)) {
+            return res.status(400).json({
+                error: `Change orders are not allowed when job status is ${job.status}`,
+            });
+        }
+
+        // Only one pending change order at a time
+        const existingPending = await prisma.changeOrder.findFirst({
+            where: { jobId: id, status: 'PENDING' },
+        });
+        if (existingPending) {
+            return res.status(409).json({
+                error: 'A pending change order already exists for this job',
+            });
         }
 
         // Calculate total
@@ -106,6 +127,21 @@ export const updateChangeOrderStatus = async (req: AuthRequest, res: Response) =
             include: { items: true },
         });
 
+        // If approved, update the job's pricing to reflect the change order
+        if (status === 'APPROVED') {
+            const breakdown = calculatePricing(changeOrder.totalAmount);
+            await prisma.job.update({
+                where: { id: changeOrder.jobId },
+                data: {
+                    serviceFee: changeOrder.totalAmount,
+                    estimateLow: changeOrder.totalAmount,
+                    estimateHigh: changeOrder.totalAmount,
+                    platformCommission: breakdown.platformCommission,
+                    technicianPayout: breakdown.technicianPayout,
+                },
+            });
+        }
+
         // Notify Technician
         if (changeOrder.job.technicianId) {
             socketService.emitToUser(changeOrder.job.technicianId, 'job:changeOrderUpdate', {
@@ -120,5 +156,43 @@ export const updateChangeOrderStatus = async (req: AuthRequest, res: Response) =
     } catch (error) {
         console.error('Update Change Order Status Error:', error);
         res.status(500).json({ error: 'Failed to update change order status' });
+    }
+};
+
+export const getChangeOrderHistory = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string; // jobId
+        const userId = req.user.userId;
+
+        // Verify user is customer or technician on this job
+        const job = await prisma.job.findUnique({ where: { id } });
+        if (!job) return res.status(404).json({ error: 'Job not found' });
+        if (job.customerId !== userId && job.technicianId !== userId) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        const changeOrders = await prisma.changeOrder.findMany({
+            where: { jobId: id as string },
+            include: { items: true },
+            orderBy: { createdAt: 'asc' },
+        });
+
+        // Prepend original estimate as first entry
+        const history = [
+            {
+                id: 'original',
+                type: 'ORIGINAL',
+                totalAmount: job.serviceFee ?? job.estimateLow,
+                status: 'ORIGINAL',
+                createdAt: job.createdAt,
+                items: [],
+            },
+            ...changeOrders,
+        ];
+
+        res.json(history);
+    } catch (error) {
+        console.error('Get Change Order History Error:', error);
+        res.status(500).json({ error: 'Failed to fetch history' });
     }
 };

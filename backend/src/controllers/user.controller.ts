@@ -78,3 +78,23 @@ export const updatePreferredLanguage = async (req: AuthRequest, res: Response) =
         res.status(500).json({ error: 'Failed to update language preference' });
     }
 };
+
+export const updatePushToken = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user.userId;
+        const { pushToken } = req.body;
+
+        if (!pushToken || typeof pushToken !== 'string') {
+            return res.status(400).json({ error: 'pushToken is required' });
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { pushToken },
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update push token' });
+    }
+};

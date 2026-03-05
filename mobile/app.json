@@ -37,7 +37,14 @@
           "enableGooglePay": false
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FF6B2C"
+        }
+      ]
     ]
   }
 }

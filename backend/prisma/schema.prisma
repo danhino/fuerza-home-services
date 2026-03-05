@@ -67,6 +67,7 @@ model User {
   technicianProfile TechnicianProfile?
   customerProfile   CustomerProfile?
   stripeCustomerId  String?
+  pushToken         String?
 }
 
 model TechnicianProfile {
@@ -132,6 +133,12 @@ model Job {
   payoutStatus           String?
   payoutAmount           Int?
   transferId             String?
+  // ── Pricing breakdown (dollars) ──
+  serviceFee             Float?
+  bookingFee             Float?
+  platformCommission     Float?
+  technicianPayout       Float?
+  cleaningSize           String?
 }
 
 model Review {
