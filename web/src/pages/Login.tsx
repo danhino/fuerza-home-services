@@ -24,8 +24,14 @@ export default function Login() {
 
             login(token, user);
             navigate('/dashboard');
-        } catch (err) {
-            setError('Invalid credentials');
+        } catch (err: any) {
+            if (err?.response?.status === 401) {
+                setError('Invalid credentials');
+            } else if (err?.code === 'ERR_NETWORK' || !err?.response) {
+                setError('Cannot connect to server. Is the backend running?');
+            } else {
+                setError(err?.response?.data?.error || 'Login failed');
+            }
         }
     };
 

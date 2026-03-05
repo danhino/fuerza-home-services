@@ -5,6 +5,7 @@
  * Self-contained: reads from useAuthStore, useJobStore, useLanguageStore.
  */
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { startLocationTracking, stopLocationTracking } from '../../services/locationTracking';
 import {
     View,
     Text,
@@ -132,12 +133,24 @@ export function TechnicianMainDashboard() {
                 // If check fails, allow going online (don't block on network errors)
                 console.log('[Connect] Status check failed, allowing toggle');
             }
+
+            // Gate: require location permission before going online
+            const locationGranted = await startLocationTracking(language === 'es');
+            if (!locationGranted) {
+                setToggling(false);
+                return; // Permission denied — do NOT allow going online
+            }
         }
 
         try {
             await api.put('/technicians/me/status', { isOnline: newStatus });
             // Update store ONLY after API confirms success
             useAuthStore.getState().setIsOnline(newStatus);
+
+            // Stop location tracking when going offline
+            if (!newStatus) {
+                await stopLocationTracking();
+            }
         } catch {
             // API failed — do NOT update the store, show error toast
             Alert.alert(
@@ -145,6 +158,10 @@ export function TechnicianMainDashboard() {
                     ? 'Error al actualizar estado. Intenta de nuevo.'
                     : 'Failed to update status. Please try again.'
             );
+            // If we started tracking but API failed, stop tracking
+            if (newStatus) {
+                await stopLocationTracking();
+            }
         } finally {
             // Always re-enable the button regardless of success or failure
             setToggling(false);
