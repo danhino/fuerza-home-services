@@ -149,6 +149,21 @@ export function HomeownerDashboard() {
         startTracking();
     }, [startTracking]);
 
+    // Animate map to user's actual location when it becomes available
+    useEffect(() => {
+        if (location?.coords?.latitude && mapRef.current) {
+            mapRef.current.animateToRegion(
+                {
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
+                },
+                1000
+            );
+        }
+    }, [location?.coords?.latitude, location?.coords?.longitude]);
+
     // Map region from user location
     const userRegion = location
         ? {
