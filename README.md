@@ -299,7 +299,81 @@ npm run dev                            # Starts on :5173
 
 ## 🧭 Dashboard Architecture
 
-The home tab (`app/(tabs)/index.tsx`) renders a role-specific dashboard.
+The home tab (`app/(tabs)/index.tsx`) renders a role-specific dashboard based on `user.role` from `useAuthStore`.
+
+### Customer Dashboard — Map-First
+
+![Customer Dashboard](docs/screenshots/CustomerDashboard.jpg)
+
+| Property | Value |
+|----------|-------|
+| **Component** | `HomeownerDashboard.tsx` |
+| **Route** | `app/(tabs)/index.tsx` → role-based rendering |
+| **Architecture** | Self-contained, hooks into Zustand stores directly |
+| **Map** | Centers on device GPS via `useLocationStore` with `animateToRegion` |
+
+**Layout:** 5 absolute-positioned layers stacked on `MapView`:
+
+| Layer | Content |
+|-------|---------|
+| 0 | Full-screen MapView with user location dot + trade-colored technician pins |
+| 1 | Floating header: "Fuerza" wordmark + address pill + user avatar |
+| 2 | Horizontal trade filter chips (All / Plumbing / Electrical / HVAC / Pool / House Cleaning / Handyman) |
+| 3 | Bottom panel: pulsing green dot with online tech count + 6 category quick-cards + orange "Request a Service" CTA |
+| 4 | Recenter FAB (bottom-right) |
+
+---
+
+### Technician Dashboard — Command Center
+
+![Technician Dashboard](docs/screenshots/TechnicianDashboard.jpg)
+
+| Property | Value |
+|----------|-------|
+| **Component** | `TechnicianMainDashboard.tsx` |
+| **Route** | `app/(tabs)/index.tsx` → role-based rendering |
+| **Architecture** | Self-contained, hooks into Zustand stores directly |
+
+**Features:**
+- **Status bar** — green "You are Online — Accepting Jobs" banner with Go Offline button
+- **Greeting header** — time-based greeting ("Good Evening, Juan") with avatar and date
+- **Earnings card** — Today's Earnings, This Week, and Pending Payout amounts
+- **Stats row** — jobs today count, star rating, accept rate percentage
+- **New Requests** — real-time job cards with trade icon, address, price, and "View" button
+- **Online/Offline toggle** gated by Stripe Connect setup + background location permission
+- **Background GPS tracking** (8s/20m intervals) while online with Android foreground service
+- **Push notifications** for new job requests (bilingual EN/ES)
+- **45-second countdown timer** on each request with auto-decline
+
+---
+
+### Welcome Screen (Bilingual)
+
+| English | Spanish |
+|---------|---------|
+| ![Welcome EN](docs/screenshots/FuerzaLaunchEN.jpg) | ![Welcome ES](docs/screenshots/FuerzaLaunchES.jpg) |
+
+The welcome screen (`app/(auth)/index.tsx`) presents two role cards:
+- **"I need a service"** → Customer registration → HomeownerDashboard
+- **"I provide a service"** → Technician registration → TechnicianMainDashboard
+
+---
+
+### Role-Based Home Tab Behavior
+
+Expo Router's `(tabs)/index.tsx` reads `user.role` from `useAuthStore` and conditionally renders:
+
+- **`TECHNICIAN`** → `<TechnicianMainDashboard />`
+- **`CUSTOMER` / default** → `<HomeownerDashboard />`
+
+Both components are fully self-contained — all data comes from Zustand stores, no props required.
+
+---
+
+## 📄 License
+
+This project is for internal/private use.
+
 
 ### Customer Dashboard — Map-First
 
