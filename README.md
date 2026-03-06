@@ -22,12 +22,16 @@
 
 ### 🔧 Mobile App (Technician)
 - **Online/Offline toggle** with store-driven state (not optimistic)
+- **Background location tracking** — `expo-task-manager` + `expo-location` emits GPS every 8s/20m via Socket.io with Android foreground service notification
+- **Location permission gate** — cannot go online without granting background location access
+- **Push notifications** — Firebase Admin SDK (HTTP v1) alerts for new job requests (bilingual EN/ES)
 - **45-second countdown timer** on new job requests with auto-decline
 - **Haversine distance calculation** from technician to job address
 - **Trade-colored job cards** with "ES" badge for Spanish-speaking customers
 - **useFocusEffect refresh** — dashboard always shows live data on focus
 - **Accept flow** wires directly to active job card on dashboard
 - **Stripe Connect Express** payout setup gate before going online
+- **Change order support** — receive and respond to price adjustment proposals
 
 ### 🖥️ Admin Console (Web)
 - **User management** — view all registered customers and technicians
@@ -56,15 +60,33 @@
 
 ### ⚡ Real-Time
 - Socket.io powered WebSocket connections
-- Live technician location tracking (with trade info, name, rating)
+- **Background location tracking** — technician GPS streamed via `location_update` events every 8 seconds
+- Live technician location pins on customer map (with trade info, name, rating)
 - Instant job status updates (Requested → Matched → En Route → Arrived → Working → Completed)
 - New job alerts for technicians with Spanish-speaker detection
+
+### 🔔 Push Notifications
+- **Firebase Admin SDK** (HTTP v1) — NOT legacy expo-server-sdk
+- Dual-mode: Expo push tokens → Expo API, raw FCM tokens → Firebase Admin
+- **New job alerts** to online technicians (bilingual EN/ES with trade, address, price)
+- **Job status alerts** to customers (Matched, En Route, Arrived, Completed)
+- Tap notification → deep link to job-detail or tracking screen
+- Fire-and-forget — failed pushes never break the main request flow
 
 ### 💳 Payments & Post-Job
 - Payment processing service integration
 - Receipt generation and email stub
 - Customer review system (star rating + comments)
-- Change order workflow for price adjustments
+- **Change order system** — create, approve/decline price adjustments with full audit trail
+- One pending change order per job guard (409 conflict)
+- Job status validation — change orders only when MATCHED/EN_ROUTE/ARRIVED/WORKING
+- Approved change orders auto-update job pricing via centralized `calculatePricing()`
+
+### 💰 Centralized Pricing
+- **Single source of truth** — `pricing.service.ts` with `calculatePricing()` and `getEstimateForTrade()`
+- **Pricing model**: Customer pays service fee + $2.99 booking fee → Platform keeps $2.99 + 12% → Technician gets 88%
+- **House Cleaning size-based pricing**: Small $125, Medium $175, Large $275, XL $325
+- Flat rates per trade: Plumbing $140, Electrical $165, HVAC $200, Pool $120, Handyman $95
 
 ---
 
@@ -103,7 +125,7 @@ fuerza-home-services/
 │       │   └── user.controller.ts
 │       ├── middleware/          # Auth + Admin middleware
 │       ├── routes/             # Express route definitions
-│       ├── services/           # Socket.io, Payment, Email services
+│       ├── services/           # Socket.io, Payment, Email, Firebase Push, Pricing services
 │       ├── utils/              # Password hashing, JWT helpers
 │       └── server.ts           # App entry point
 │
@@ -143,7 +165,7 @@ fuerza-home-services/
 │       │   ├── useTheme.ts     # Unified theme hook
 │       │   └── useThemeColor.ts
 │       ├── i18n/               # Translation files (en.ts, es.ts) + language store
-│       ├── services/           # Axios API client, Socket client
+│       ├── services/           # Axios API, Socket, Push Notifications, Location Tracking
 │       └── store/              # Zustand stores
 │           ├── useAuthStore.ts
 │           ├── useJobStore.ts
@@ -173,6 +195,8 @@ fuerza-home-services/
 | **Payments** | Stripe PaymentSheet (customer) + Stripe Connect Express (technician payouts) |
 | **Photos**   | expo-image-picker, expo-image-manipulator          |
 | **i18n**     | Custom Zustand store + AsyncStorage persistence   |
+| **Push**     | Firebase Admin SDK (HTTP v1) + expo-notifications  |
+| **Location** | expo-location + expo-task-manager (background GPS) |
 | **Real-time**| Socket.io (server) + socket.io-client (mobile)    |
 | **Backend**  | Node.js, Express, TypeScript                      |
 | **Database** | PostgreSQL + Prisma ORM                           |
@@ -255,11 +279,14 @@ npm run dev                            # Starts on :5173
 
 ### Technician Flow
 1. **Register** as a Technician (toggle switch on registration)
-2. **Go Online** — toggle availability on the Home Screen
-3. **Receive Jobs** — new requests appear in the Jobs tab instantly (with Spanish-speaker alert if applicable)
-4. **Review Details** — see customer name, address, description, photos, estimated earnings, and language badge before accepting
-5. **Accept & Work** — tap "Accept Job" to claim a request
-6. **Status Updates** — progress through: Matched → En Route → Arrived → Working → Completed
+2. **Set Up Payouts** — configure Stripe Connect Express before going online
+3. **Go Online** — toggle availability (grants background location permission → starts GPS tracking → Android foreground service notification)
+4. **Receive Jobs** — push notification + real-time socket alert with trade, address, and price (bilingual EN/ES)
+5. **Review Details** — see customer name, address, description, photos, estimated earnings, and language badge before accepting
+6. **Accept & Work** — tap "Accept Job" to claim a request
+7. **Status Updates** — progress through: Matched → En Route → Arrived → Working → Completed
+8. **Change Orders** — propose price adjustments if scope changes (one pending per job)
+9. **Go Offline** — stops background location tracking and notifies server
 
 ### Admin Flow
 1. **Login** at `http://localhost:5173` with admin credentials
@@ -296,11 +323,16 @@ The home tab (`app/(tabs)/index.tsx`) renders a role-specific dashboard.
 
 | Property | Value |
 |----------|-------|
-| **Stitch Screen ID** | `b151d67385da435280585ba51c0914bd` |
 | **Component** | `mobile/src/components/stitch_ui/TechnicianMainDashboard.tsx` |
 | **Route** | `app/(tabs)/index.tsx` (role-based rendering) |
+| **Architecture** | Self-contained, hooks into stores directly |
 
-**Description:** Primary landing experience for authenticated technicians. Displays next job card, upcoming schedule, and service shortcuts.
+**Features:**
+- Online/Offline toggle with Stripe Connect + Location permission gates
+- Background GPS tracking (8s/20m) while online with Android foreground service
+- Push notifications for new job requests (bilingual)
+- Job queue with trade-colored cards, countdown timer, and distance calculation
+- Earnings summary and active job management
 
 ### Role-Based Home Tab Behavior
 
