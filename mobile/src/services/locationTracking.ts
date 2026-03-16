@@ -8,6 +8,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { Alert, Linking, Platform } from 'react-native';
 import { socketService } from './socket.service';
+import { useAuthStore } from '../store/useAuthStore';
 
 const LOCATION_TASK = 'background-location-task';
 
@@ -84,11 +85,10 @@ export async function startLocationTracking(isSpanish = false): Promise<boolean>
         return false;
     }
 
-    // 3. Check if already tracking
+    // 3. Stop any existing tracking to reconnect to current socket session
     const isTracking = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK).catch(() => false);
     if (isTracking) {
-        console.log('[Location] Already tracking — skipping start');
-        return true;
+        await Location.stopLocationUpdatesAsync(LOCATION_TASK).catch(() => {});
     }
 
     // 4. Start background updates
@@ -105,6 +105,18 @@ export async function startLocationTracking(isSpanish = false): Promise<boolean>
     });
 
     console.log('[Location] Background tracking started');
+
+    // Notify the server this technician is online
+    const user = useAuthStore.getState().user;
+    if (user) {
+        socketService.emit('technician_online', {
+            technicianId: user.id,
+            trade: (user as any).technicianProfile?.trade ?? (user as any).trade ?? 'PLUMBER',
+            name: user.name ?? '',
+            rating: (user as any).technicianProfile?.rating ?? (user as any).rating ?? 5.0,
+        });
+    }
+
     return true;
 }
 

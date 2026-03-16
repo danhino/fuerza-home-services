@@ -110,6 +110,7 @@ export function HomeownerDashboard() {
     const technicianLocations = useMapStore((s) => s.technicianLocations);
     const initSocket = useMapStore((s) => s.initializeSocketListeners);
     const cleanupSocket = useMapStore((s) => s.cleanupSocketListeners);
+    const fetchOnlineTechs = useMapStore((s) => s.fetchOnlineTechnicians);
 
     // Derive filtered techs and online count via useMemo (stable references)
     const filteredTechs = useMemo(() => {
@@ -138,11 +139,12 @@ export function HomeownerDashboard() {
         return () => pulse.stop();
     }, [pulseAnim]);
 
-    // Socket listeners
+    // Socket listeners + fetch current online technicians
     useEffect(() => {
         initSocket();
+        fetchOnlineTechs();
         return () => cleanupSocket();
-    }, [initSocket, cleanupSocket]);
+    }, [initSocket, cleanupSocket, fetchOnlineTechs]);
 
     // Start location tracking
     useEffect(() => {
@@ -187,6 +189,9 @@ export function HomeownerDashboard() {
     }, [router]);
 
     // ── Render ────────────────────────────────────────────────────────────────
+
+    console.log('[MapDebug] technicians:', JSON.stringify(technicianLocations));
+    console.log('[MapDebug] onlineCount:', onlineCount);
 
     return (
         <View style={styles.root}>

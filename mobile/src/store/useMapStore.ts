@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { socketService } from '../services/socket.service';
+import api from '../services/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ interface MapState {
     removeTechnician: (techId: string) => void;
     getFilteredLocations: () => TechnicianLocation[];
     getOnlineCount: () => number;
+    fetchOnlineTechnicians: () => Promise<void>;
     initializeSocketListeners: () => void;
     cleanupSocketListeners: () => void;
 }
@@ -63,7 +65,58 @@ export const useMapStore = create<MapState>((set, get) => ({
         return Object.values(technicianLocations).filter((t) => t.isOnline).length;
     },
 
+    fetchOnlineTechnicians: async () => {
+        try {
+            const res = await api.get('/technicians/online');
+            const techs: TechnicianLocation[] = (res.data.technicians || []).map((t: any) => ({
+                techId: t.id,
+                name: t.name,
+                lat: t.lat,
+                lng: t.lng,
+                trade: t.trade,
+                rating: t.rating,
+                isOnline: true,
+            }));
+            const map: Record<string, TechnicianLocation> = {};
+            techs.forEach((t) => { map[t.techId] = t; });
+            set({ technicianLocations: map });
+        } catch (err) {
+            console.error('[MapStore] Failed to fetch online technicians:', err);
+        }
+    },
+
     initializeSocketListeners: () => {
+        // New events from the updated backend
+        socketService.on('technician_location', (data: { id: string; lat: number; lng: number; trade: string }) => {
+            const existing = get().technicianLocations[data.id];
+            get().updateTechnicianLocation({
+                techId: data.id,
+                name: existing?.name ?? '',
+                lat: data.lat,
+                lng: data.lng,
+                trade: data.trade ?? existing?.trade ?? 'PLUMBER',
+                rating: existing?.rating ?? 5.0,
+                isOnline: true,
+            });
+        });
+
+        socketService.on('technician_came_online', (data: { id: string; trade: string; name: string; rating: number; isOnline: boolean }) => {
+            get().updateTechnicianLocation({
+                techId: data.id,
+                name: data.name,
+                lat: 0,
+                lng: 0,
+                trade: data.trade,
+                rating: data.rating,
+                isOnline: true,
+            });
+        });
+
+        socketService.on('technician_went_offline', (data: { id: string }) => {
+            get().removeTechnician(data.id);
+        });
+
+        // Legacy events (backward compatibility)
         socketService.on('technician:moved', (data: TechnicianLocation) => {
             get().updateTechnicianLocation(data);
         });
@@ -73,6 +126,9 @@ export const useMapStore = create<MapState>((set, get) => ({
     },
 
     cleanupSocketListeners: () => {
+        socketService.off('technician_location');
+        socketService.off('technician_came_online');
+        socketService.off('technician_went_offline');
         socketService.off('technician:moved');
         socketService.off('technician:offline');
     },
