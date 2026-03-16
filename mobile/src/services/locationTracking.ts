@@ -15,22 +15,24 @@ const LOCATION_TASK = 'background-location-task';
 // Must be defined at module level (outside any component).
 TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: any) => {
     if (error) {
-        console.error('[Location] Background task error:', error);
+        // Code 1 = permission denied — ignore silently, don't crash
+        if (error.code !== 1) {
+            console.error('[Location] Background task error:', error);
+        }
         return;
     }
+    if (!data) return;
 
-    if (data) {
-        const { locations } = data as { locations: Location.LocationObject[] };
-        const latest = locations[locations.length - 1];
-        if (!latest) return;
+    const { locations } = data as { locations: Location.LocationObject[] };
+    if (!locations?.length) return;
 
-        socketService.emit('location_update', {
-            lat: latest.coords.latitude,
-            lng: latest.coords.longitude,
-            isOnline: true,
-            timestamp: latest.timestamp,
-        });
-    }
+    const { latitude, longitude } = locations[0].coords;
+    socketService.emit('location_update', {
+        lat: latitude,
+        lng: longitude,
+        isOnline: true,
+        timestamp: locations[0].timestamp,
+    });
 });
 
 // ── Permission helpers ──────────────────────────────────────────────────
