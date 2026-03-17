@@ -188,14 +188,11 @@ export const createJob = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        // Store URLs in both the legacy photos array and the new JobPhoto table
+        // Store URLs in the photos array on the Job record
         if (photoUrls.length > 0) {
             await prisma.job.update({
                 where: { id: job.id },
                 data: { photos: photoUrls },
-            });
-            await prisma.jobPhoto.createMany({
-                data: photoUrls.map((url) => ({ jobId: job.id, url })),
             });
         }
 
