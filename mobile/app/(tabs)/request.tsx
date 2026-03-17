@@ -338,31 +338,36 @@ export default function RequestScreen() {
                 console.log('[Payment] DEV MODE: Skipping PaymentSheet, using PaymentIntent directly');
             }
 
-            // 4. Create the job
+            // 4. Create the job using FormData for photo uploads
             const lat = location?.lat || 29.4241;
             const lng = location?.lng || -98.4936;
 
-            const photoData: string[] = [];
-            for (const uri of photos) {
-                const response = await fetch(uri);
-                const blob = await response.blob();
-                const base64 = await new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.readAsDataURL(blob);
-                });
-                photoData.push(base64);
+            const formData: any = new FormData();
+            formData.append('trade', selectedTrade);
+            formData.append('description', description);
+            formData.append('address', address);
+            formData.append('lat', String(lat));
+            formData.append('lng', String(lng));
+            if (estimate) {
+                formData.append('estimatedPrice', String(estimate.serviceFee + BOOKING_FEE));
+            }
+            if (pi.paymentIntentId) {
+                formData.append('paymentIntentId', pi.paymentIntentId);
             }
 
-            const { data } = await api.post('/jobs', {
-                trade: selectedTrade,
-                description,
-                address,
-                lat,
-                lng,
-                photos: photoData,
-                estimatedPrice: estimate ? estimate.serviceFee + BOOKING_FEE : undefined,
-                paymentIntentId: pi.paymentIntentId,
+            // Append each photo as a file
+            for (let i = 0; i < photos.length; i++) {
+                const uri = photos[i];
+                const filename = `photo_${i}_${Date.now()}.jpg`;
+                formData.append('photos', {
+                    uri,
+                    name: filename,
+                    type: 'image/jpeg',
+                });
+            }
+
+            const { data } = await api.post('/jobs', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
             });
 
             router.replace({

@@ -142,9 +142,11 @@ export function HomeownerDashboard() {
     // Socket listeners + fetch current online technicians
     useEffect(() => {
         initSocket();
-        fetchOnlineTechs();
+        if (user?.id) {
+            fetchOnlineTechs();
+        }
         return () => cleanupSocket();
-    }, [initSocket, cleanupSocket, fetchOnlineTechs]);
+    }, [initSocket, cleanupSocket, fetchOnlineTechs, user?.id]);
 
     // Start location tracking
     useEffect(() => {
@@ -189,9 +191,6 @@ export function HomeownerDashboard() {
     }, [router]);
 
     // ── Render ────────────────────────────────────────────────────────────────
-
-    console.log('[MapDebug] technicians:', JSON.stringify(technicianLocations));
-    console.log('[MapDebug] onlineCount:', onlineCount);
 
     return (
         <View style={styles.root}>

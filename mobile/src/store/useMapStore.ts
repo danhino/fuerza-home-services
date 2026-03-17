@@ -80,8 +80,11 @@ export const useMapStore = create<MapState>((set, get) => ({
             const map: Record<string, TechnicianLocation> = {};
             techs.forEach((t) => { map[t.techId] = t; });
             set({ technicianLocations: map });
-        } catch (err) {
-            console.error('[MapStore] Failed to fetch online technicians:', err);
+        } catch (error: any) {
+            // Silently ignore 401 — user may be logged out
+            if (error?.response?.status !== 401) {
+                console.error('[MapStore] Failed to fetch online technicians:', error);
+            }
         }
     },
 

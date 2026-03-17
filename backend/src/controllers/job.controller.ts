@@ -5,6 +5,7 @@ import { socketService } from '../services/socket.service';
 import { captureHold, createPayout } from '../services/payment.service';
 import { calculatePricing, getTradeEstimate, getEstimateForTrade } from '../services/pricing.service';
 import { sendNewJobAlert, sendJobStatusAlert } from '../services/push.service';
+import { uploadPhoto } from '../services/storage.service';
 
 const prisma = new PrismaClient();
 
@@ -121,26 +122,30 @@ export const createJob = async (req: AuthRequest, res: Response) => {
         // Calculate pricing breakdown — uses size-based rate for House Cleaning
         const pricing = getEstimateForTrade(trade, cleaningSize);
 
+        // Parse lat/lng which may come as strings from multipart/form-data
+        const parsedLat = typeof lat === 'string' ? parseFloat(lat) : lat;
+        const parsedLng = typeof lng === 'string' ? parseFloat(lng) : lng;
+
         const job = await prisma.job.create({
             data: {
                 customerId,
                 trade,
                 description,
                 address,
-                locationLat: lat,
-                locationLng: lng,
+                locationLat: parsedLat,
+                locationLng: parsedLng,
                 status: JobStatus.REQUESTED,
                 issueTag: issueTag || null,
                 videoUrl: videoUrl || null,
-                photos: photos || [],
+                photos: [], // Will be populated below with R2 URLs
                 ...(holdRef ? {
                     paymentProvider: 'STRIPE',
                     holdRef,
-                    holdAmount: holdAmountCents || null,
+                    holdAmount: holdAmountCents ? Number(holdAmountCents) : null,
                     paymentHoldStatus: 'HELD',
                 } : {}),
-                estimateLow: estimateLow || estimatedPrice || pricing.serviceFee,
-                estimateHigh: estimateHigh || estimatedPrice || pricing.serviceFee,
+                estimateLow: estimateLow ? Number(estimateLow) : (estimatedPrice ? Number(estimatedPrice) : pricing.serviceFee),
+                estimateHigh: estimateHigh ? Number(estimateHigh) : (estimatedPrice ? Number(estimatedPrice) : pricing.serviceFee),
                 paymentIntentId: paymentIntentId || null,
                 cleaningSize: cleaningSize || null,
                 // Pricing breakdown
@@ -150,6 +155,52 @@ export const createJob = async (req: AuthRequest, res: Response) => {
                 technicianPayout: pricing.technicianPayout,
             },
         });
+
+        // ── Upload photos to R2 ──────────────────────────────────────
+        const photoUrls: string[] = [];
+        const multerFiles = (req as any).files as Express.Multer.File[] | undefined;
+
+        if (multerFiles && multerFiles.length > 0) {
+            // Multipart uploads (files from mobile)
+            for (const file of multerFiles) {
+                const key = `photos/${job.id}/${Date.now()}_${file.originalname}`;
+                const url = await uploadPhoto(file.buffer, key, file.mimetype);
+                photoUrls.push(url);
+            }
+        } else if (photos && Array.isArray(photos) && photos.length > 0) {
+            // Fallback: base64/URL strings from legacy JSON body
+            for (const photo of photos) {
+                if (typeof photo === 'string' && photo.startsWith('data:')) {
+                    // Base64 data URI — decode and upload
+                    const matches = photo.match(/^data:(.+);base64,(.+)$/);
+                    if (matches) {
+                        const mimeType = matches[1];
+                        const buffer = Buffer.from(matches[2], 'base64');
+                        const ext = mimeType.split('/')[1] || 'jpg';
+                        const key = `photos/${job.id}/${Date.now()}_photo.${ext}`;
+                        const url = await uploadPhoto(buffer, key, mimeType);
+                        photoUrls.push(url);
+                    }
+                } else if (typeof photo === 'string') {
+                    // Already a URL — keep it
+                    photoUrls.push(photo);
+                }
+            }
+        }
+
+        // Store URLs in both the legacy photos array and the new JobPhoto table
+        if (photoUrls.length > 0) {
+            await prisma.job.update({
+                where: { id: job.id },
+                data: { photos: photoUrls },
+            });
+            await prisma.jobPhoto.createMany({
+                data: photoUrls.map((url) => ({ jobId: job.id, url })),
+            });
+        }
+
+        // Update job object for socket payload
+        job.photos = photoUrls;
 
         // Fetch customer's preferred language to include in socket payload
         const customer = await prisma.user.findUnique({

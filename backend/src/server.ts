@@ -8,6 +8,13 @@ import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import jobRoutes from './routes/job.routes';
 
+process.on('unhandledRejection', (reason) => 
+  console.error('[UnhandledRejection]', reason));
+process.on('uncaughtException', (err) => {
+  console.error('[UncaughtException]', err);
+  process.exit(1);
+});
+
 dotenv.config();
 
 const app = express();
@@ -52,6 +59,12 @@ app.get('/', (req, res) => {
 });
 
 socketService.init(io);
+
+// ── Global error handler — MUST be after all routes ──────────────────────────
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('[GlobalError]', err.stack);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 const PORT = process.env.PORT || 3000;
 

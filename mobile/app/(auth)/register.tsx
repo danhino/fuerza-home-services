@@ -28,8 +28,8 @@ export default function RegisterScreen() {
         try {
             const role = isTechnician ? 'TECHNICIAN' : 'CUSTOMER';
             const response = await api.post('/auth/register', { email, phone, password, role, firstName, lastName, name: `${firstName} ${lastName}`.trim() });
-            const { token, user } = response.data;
-            login(token, user);
+            const { token, refreshToken, user } = response.data;
+            login(token, user, refreshToken);
             // Persist language to backend on registration
             try {
                 await api.patch('/users/me/language', { preferredLanguage: language });

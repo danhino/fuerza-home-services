@@ -68,6 +68,7 @@ model User {
   customerProfile   CustomerProfile?
   stripeCustomerId  String?
   pushToken         String?
+  refreshToken      String?
 }
 
 model TechnicianProfile {
@@ -122,6 +123,7 @@ model Job {
   estimateLow            Float?
   estimateHigh           Float?
   changeOrders           ChangeOrder[]
+  jobPhotos              JobPhoto[]
   finalAmount            Int?          // in cents
   tipAmount              Int?          // in cents
   feeBreakdown           Json?         // Stores platform fee details
@@ -215,4 +217,12 @@ model ChangeOrderItem {
   description   String
   quantity      Int         @default(1)
   unitPrice     Float
+}
+
+model JobPhoto {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id])
+  url       String
+  createdAt DateTime @default(now())
 }

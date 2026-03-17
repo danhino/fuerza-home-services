@@ -13,29 +13,41 @@ interface User {
 }
 
 interface AuthState {
-    token: string | null;
+    accessToken: string | null;
+    refreshToken: string | null;
     user: User | null;
     isAuthenticated: boolean;
-    login: (token: string, user: User) => void;
+    login: (accessToken: string, user: User, refreshToken?: string) => void;
     logout: () => void;
+    clearTokens: () => void;
     setIsOnline: (val: boolean) => void;
+    setTokens: (accessToken: string, refreshToken: string) => void;
 }
 
 import { socketService } from '../services/socket.service';
 
 export const useAuthStore = create<AuthState>((set) => ({
-    token: null,
+    accessToken: null,
+    refreshToken: null,
     user: null,
     isAuthenticated: false,
-    login: (token, user) => {
-        set({ token, user, isAuthenticated: true });
+    login: (accessToken, user, refreshToken) => {
+        set({ accessToken, refreshToken: refreshToken ?? null, user, isAuthenticated: true });
         socketService.connect();
     },
     logout: () => {
         socketService.disconnect();
-        set({ token: null, user: null, isAuthenticated: false });
+        set({ accessToken: null, refreshToken: null, user: null, isAuthenticated: false });
+    },
+    clearTokens: () => {
+        socketService.disconnect();
+        set({ accessToken: null, refreshToken: null, user: null, isAuthenticated: false });
     },
     setIsOnline: (val) => set((state) => ({
         user: state.user ? { ...state.user, isOnline: val } : null,
     })),
+    setTokens: (accessToken, refreshToken) => set({
+        accessToken,
+        refreshToken,
+    }),
 }));

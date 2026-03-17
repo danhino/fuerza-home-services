@@ -6,7 +6,7 @@ class MobileSocketService {
     private socket: Socket | null = null;
 
     public connect() {
-        const token = useAuthStore.getState().token;
+        const token = useAuthStore.getState().accessToken;
 
         if (this.socket?.connected) return;
 

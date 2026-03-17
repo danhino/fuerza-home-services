@@ -23,8 +23,8 @@ export default function LoginScreen() {
     const handleLogin = async () => {
         try {
             const response = await api.post('/auth/login', { identifier, password });
-            const { token, user } = response.data;
-            login(token, user);
+            const { token, refreshToken, user } = response.data;
+            login(token, user, refreshToken);
             // Sync language from server if user already had a preference
             if (user.preferredLanguage) {
                 setLanguage(user.preferredLanguage);
