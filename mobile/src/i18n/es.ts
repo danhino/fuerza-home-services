@@ -229,6 +229,10 @@ const es = {
     'jobs.success': 'Éxito',
     'jobs.accepted': '¡Trabajo aceptado!',
     'jobs.acceptFailed': 'No se pudo aceptar el trabajo',
+    'jobs.earnings.title': 'Desglose de ganancias',
+    'jobs.earnings.customerPays': 'Cliente paga',
+    'jobs.earnings.platformFee': 'Tarifa de plataforma (12%)',
+    'jobs.earnings.yourEarnings': 'Tus ganancias',
 
     // ── Job Detail ──────────────────────────────────
     'jobDetail.newJob': 'Nuevo Trabajo',

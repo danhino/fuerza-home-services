@@ -228,6 +228,10 @@ const en = {
     'jobs.success': 'Success',
     'jobs.accepted': 'Job Accepted!',
     'jobs.acceptFailed': 'Failed to accept job',
+    'jobs.earnings.title': 'Earnings Breakdown',
+    'jobs.earnings.customerPays': 'Customer pays',
+    'jobs.earnings.platformFee': 'Platform fee (12%)',
+    'jobs.earnings.yourEarnings': 'Your earnings',
 
     // ── Job Detail ──────────────────────────────────
     'jobDetail.newJob': 'New Job',

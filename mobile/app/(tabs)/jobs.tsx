@@ -411,24 +411,27 @@ export default function JobsScreen() {
                         </View>
 
                         {/* Earnings breakdown for technicians — shown before accept */}
-                        {isTechnician && isRequested && (item.estimateLow != null && item.estimateHigh != null) && (() => {
-                            const PLATFORM_FEE = 2.99;
-                            const earningsLow = Math.max(0, item.estimateLow! - PLATFORM_FEE);
-                            const earningsHigh = Math.max(0, item.estimateHigh! - PLATFORM_FEE);
+                        {isTechnician && isRequested && (() => {
+                            const serviceFee = item.estimate?.currentAmount ?? item.estimateLow ?? 0;
+                            const bookingFee = 2.99;
+                            const platformCommission = serviceFee * 0.12;
+                            const technicianEarnings = serviceFee * 0.88;
+                            const customerTotal = serviceFee + bookingFee;
+                            
                             return (
                                 <View style={styles.earningsBox}>
                                     <Text style={styles.earningsTitle}>{t('jobs.earnings.title')}</Text>
                                     <View style={styles.earningsRow}>
-                                        <Text style={styles.earningsLabel}>{t('jobs.earnings.customerEstimate')}</Text>
-                                        <Text style={styles.earningsValue}>${item.estimateLow!.toFixed(2)} – ${item.estimateHigh!.toFixed(2)}</Text>
+                                        <Text style={styles.earningsLabel}>{t('jobs.earnings.customerPays')}</Text>
+                                        <Text style={styles.earningsValue}>${customerTotal.toFixed(2)}</Text>
                                     </View>
                                     <View style={styles.earningsRow}>
                                         <Text style={styles.earningsLabel}>{t('jobs.earnings.platformFee')}</Text>
-                                        <Text style={[styles.earningsValue, { color: '#FF3B30' }]}>-${PLATFORM_FEE.toFixed(2)}</Text>
+                                        <Text style={[styles.earningsValue, { color: '#FF3B30' }]}>-${platformCommission.toFixed(2)}</Text>
                                     </View>
                                     <View style={[styles.earningsRow, styles.earningsTotalRow]}>
-                                        <Text style={styles.earningsTotalLabel}>{t('jobs.earnings.estimated')}</Text>
-                                        <Text style={styles.earningsTotalValue}>${earningsLow.toFixed(2)} – ${earningsHigh.toFixed(2)}</Text>
+                                        <Text style={styles.earningsTotalLabel}>{t('jobs.earnings.yourEarnings')}</Text>
+                                        <Text style={styles.earningsTotalValue}>${technicianEarnings.toFixed(2)}</Text>
                                     </View>
                                 </View>
                             );

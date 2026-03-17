@@ -164,8 +164,9 @@ export default function JobDetailScreen() {
     // Estimate — prefer estimate.currentAmount, fall back to estimateLow
     const rawServiceFee = job?.estimate?.currentAmount ?? job?.estimateLow ?? null;
     const serviceFee = rawServiceFee; // null means "no estimate available"
+    const platformCommission = serviceFee != null ? serviceFee * PLATFORM_FEE_RATE : null;
     const total = serviceFee != null ? serviceFee + BOOKING_FEE : null;
-    const techReceives = total != null ? total * (1 - PLATFORM_FEE_RATE) : null;
+    const techReceives = serviceFee != null ? serviceFee * 0.88 : null;
 
     // Distance (client-side)
     const distance = useMemo((): number | null => {
@@ -378,45 +379,38 @@ export default function JobDetailScreen() {
                 )}
 
                 {/* ═══ ESTIMATE SECTION ═══ */}
-                <Card style={{ marginTop: theme.spacing.xl }}>
-                    <Text style={[theme.typography.label, { color: theme.colors.textTertiary }]}>
-                        {t('jobDetail.flatRate')}
+                <Card style={{ marginTop: theme.spacing.xl, padding: 16 }}>
+                    <Text style={[theme.typography.titleSm, { color: theme.colors.textPrimary, marginBottom: 12 }]}>
+                        {t('jobs.earnings.title')}
                     </Text>
-                    <Text style={[styles.priceDisplay, { color: theme.colors.textPrimary }]}>
-                        {serviceFee != null ? `$${serviceFee.toFixed(2)}` : '$—'}
-                    </Text>
-
-                    <View style={[styles.divider, { backgroundColor: theme.colors.divider, marginVertical: theme.spacing.md }]} />
 
                     <View style={styles.feeRow}>
                         <Text style={[theme.typography.bodySm, { color: theme.colors.textSecondary }]}>
-                            {t('jobDetail.serviceFee')}
+                            {t('jobs.earnings.customerPays')}
                         </Text>
-                        <Text style={[theme.typography.bodySm, { color: theme.colors.textPrimary }]}>
-                            {serviceFee != null ? `$${serviceFee.toFixed(2)}` : '$—'}
+                        <Text style={[theme.typography.bodySm, { color: theme.colors.textPrimary, fontWeight: '600' }]}>
+                            {total != null ? `$${total.toFixed(2)}` : '$—'}
                         </Text>
                     </View>
+
                     <View style={styles.feeRow}>
                         <Text style={[theme.typography.bodySm, { color: theme.colors.textSecondary }]}>
-                            {t('jobDetail.bookingFee')}
+                            {t('jobs.earnings.platformFee')}
                         </Text>
-                        <Text style={[theme.typography.bodySm, { color: theme.colors.textPrimary }]}>
-                            ${BOOKING_FEE.toFixed(2)}
+                        <Text style={[theme.typography.bodySm, { color: '#FF3B30', fontWeight: '600' }]}>
+                            {platformCommission != null ? `-$${platformCommission.toFixed(2)}` : '$—'}
                         </Text>
                     </View>
 
-                    <View style={[styles.divider, { backgroundColor: theme.colors.divider, marginVertical: theme.spacing.md }]} />
+                    <View style={[styles.divider, { backgroundColor: theme.colors.divider, marginVertical: 12 }]} />
 
-                    <View style={[styles.earningsRow, { backgroundColor: '#22C55E12', borderRadius: theme.radius.sm, padding: theme.spacing.sm }]}>
-                        <Ionicons name="wallet-outline" size={18} color="#22C55E" />
-                        <View style={{ marginLeft: 8, flex: 1 }}>
-                            <Text style={[theme.typography.caption, { color: '#22C55E' }]}>
-                                {t('jobDetail.youReceive')}
-                            </Text>
-                            <Text style={[theme.typography.titleLg, { color: '#22C55E' }]}>
-                                {techReceives != null ? `$${techReceives.toFixed(2)}` : '$—'}
-                            </Text>
-                        </View>
+                    <View style={[styles.feeRow, { alignItems: 'center' }]}>
+                        <Text style={[theme.typography.titleSm, { color: theme.colors.textPrimary }]}>
+                            {t('jobs.earnings.yourEarnings')}
+                        </Text>
+                        <Text style={[theme.typography.titleLg, { color: '#22C55E', fontWeight: 'bold' }]}>
+                            {techReceives != null ? `$${techReceives.toFixed(2)}` : '$—'}
+                        </Text>
                     </View>
                 </Card>
 
