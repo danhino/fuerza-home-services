@@ -316,6 +316,7 @@ const en = {
     'techDash.rating': 'rating',
     'techDash.acceptRate': 'accept rate',
     'techDash.view': 'View',
+    'techDash.noEarningsHint': 'Complete your first job to start earning!',
 
     // ── Role Selection ───────────────────────────────
     'roleSelect.title': 'Welcome to Fuerza',
@@ -341,6 +342,19 @@ const en = {
     'tracking.redirecting': 'Redirecting to receipt...',
     'tracking.call': 'Call',
     'tracking.message': 'Message',
+
+    // ── Active Job ───────────────────────────────────
+    'activeJob.title': 'Active Job',
+    'activeJob.customerInfo': 'Customer Info',
+    'activeJob.getDirections': 'Get Directions',
+    'activeJob.startDriving': 'Start Driving',
+    'activeJob.arrived': "I've Arrived",
+    'activeJob.startWorking': 'Start Working',
+    'activeJob.markComplete': 'Mark Complete',
+    'activeJob.jobComplete': 'Job Complete!',
+    'activeJob.jobDetails': 'Job Details',
+    'activeJob.proposeChange': 'Propose Price Change',
+    'activeJob.statusUpdateFailed': 'Failed to update status. Try again.',
 
     // ── Earnings ─────────────────────────────────────
     'earnings.comingSoon': 'Earnings dashboard coming soon',

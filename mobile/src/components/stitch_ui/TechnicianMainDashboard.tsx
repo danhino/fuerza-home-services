@@ -83,6 +83,10 @@ export function TechnicianMainDashboard() {
     const isOnline = user?.isOnline ?? false;
     const jobs = useJobStore((s) => s.jobs);
     const fetchJobs = useJobStore((s) => s.fetchJobs);
+    const fetchEarnings = useJobStore((s) => s.fetchEarnings);
+    const todayEarnings = useJobStore((s) => s.todayEarnings);
+    const weekEarnings = useJobStore((s) => s.weekEarnings);
+    const pendingPayout = useJobStore((s) => s.pendingPayout);
 
     // ── Online / Offline state ───────────────────────────────────────────────
 
@@ -173,14 +177,15 @@ export function TechnicianMainDashboard() {
     useFocusEffect(
         useCallback(() => {
             fetchJobs('TECHNICIAN');
-        }, [fetchJobs])
+            fetchEarnings();
+        }, [fetchJobs, fetchEarnings])
     );
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await fetchJobs('TECHNICIAN');
+        await Promise.all([fetchJobs('TECHNICIAN'), fetchEarnings()]);
         setRefreshing(false);
-    }, [fetchJobs]);
+    }, [fetchJobs, fetchEarnings]);
 
     // ── Derived data ─────────────────────────────────────────────────────────
 
@@ -197,13 +202,11 @@ export function TechnicianMainDashboard() {
         [jobs]
     );
 
-    // Mock stats (would come from API in production)
-    const todayEarnings = 0;
-    const weekEarnings = 0;
-    const pendingPayout = 0;
+    // Derived stats
     const jobsToday = completedJobs.length;
     const techRating = 4.8;
     const acceptRate = 92;
+    const hasNoEarnings = todayEarnings === 0 && weekEarnings === 0 && pendingPayout === 0;
 
     // ── Render ────────────────────────────────────────────────────────────────
 
@@ -315,7 +318,7 @@ export function TechnicianMainDashboard() {
                                 label={t('techDash.viewDetails')}
                                 variant="primary"
                                 size="sm"
-                                onPress={() => router.push({ pathname: '/(tabs)/job-detail', params: { jobId: activeJob.id } })}
+                                onPress={() => router.push({ pathname: '/(tabs)/active-job', params: { jobId: activeJob.id } })}
                             />
                         </View>
                     </Card>
@@ -334,6 +337,12 @@ export function TechnicianMainDashboard() {
                         <Text style={[styles.earningsAmount, { color: theme.colors.textPrimary }]}>
                             ${todayEarnings.toFixed(2)}
                         </Text>
+
+                        {hasNoEarnings && (
+                            <Text style={[theme.typography.caption, { color: theme.colors.textTertiary, marginTop: theme.spacing.xs }]}>
+                                {t('techDash.noEarningsHint')}
+                            </Text>
+                        )}
 
                         <View style={[styles.earningsSubRow, { marginTop: theme.spacing.md }]}>
                             <View style={styles.earningsSub}>

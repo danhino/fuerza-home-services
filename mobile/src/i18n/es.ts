@@ -317,6 +317,7 @@ const es = {
     'techDash.rating': 'calificación',
     'techDash.acceptRate': 'tasa de aceptación',
     'techDash.view': 'Ver',
+    'techDash.noEarningsHint': '¡Completa tu primer trabajo para empezar a ganar!',
 
     // ── Role Selection ───────────────────────────────
     'roleSelect.title': 'Bienvenido a Fuerza',
@@ -342,6 +343,19 @@ const es = {
     'tracking.redirecting': 'Redirigiendo al recibo...',
     'tracking.call': 'Llamar',
     'tracking.message': 'Mensaje',
+
+    // ── Active Job ───────────────────────────────────
+    'activeJob.title': 'Trabajo Activo',
+    'activeJob.customerInfo': 'Info del Cliente',
+    'activeJob.getDirections': 'Obtener Direcciones',
+    'activeJob.startDriving': 'Comenzar a Conducir',
+    'activeJob.arrived': 'He Llegado',
+    'activeJob.startWorking': 'Comenzar a Trabajar',
+    'activeJob.markComplete': 'Marcar Completo',
+    'activeJob.jobComplete': '¡Trabajo Completado!',
+    'activeJob.jobDetails': 'Detalles del Trabajo',
+    'activeJob.proposeChange': 'Proponer Cambio de Precio',
+    'activeJob.statusUpdateFailed': 'Error al actualizar estado. Intenta de nuevo.',
 
     // ── Earnings ─────────────────────────────────────
     'earnings.comingSoon': 'Panel de ganancias próximamente',

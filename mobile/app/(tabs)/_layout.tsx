@@ -14,7 +14,7 @@ export default function TabLayout() {
     const isDark = colorScheme === 'dark';
 
     const activeColor = '#FF6B2C';
-    const inactiveColor = '#6B7280';
+    const inactiveColor = isDark ? '#9CA3AF' : '#6B7280';
     const backgroundColor = isDark ? '#0F1923' : '#FFFFFF';
 
     return (
@@ -26,7 +26,7 @@ export default function TabLayout() {
                 tabBarStyle: {
                     backgroundColor: backgroundColor,
                     borderTopWidth: 1,
-                    borderTopColor: '#1C2733',
+                    borderTopColor: isDark ? '#1C2733' : '#E5E7EB',
                 }
             }}
         >
@@ -113,6 +113,13 @@ export default function TabLayout() {
                 name="tracking"
                 options={{
                     tabBarIcon: ({ color }) => <MaterialCommunityIcons name="map-marker-path" size={24} color={color} />,
+                    tabBarButton: () => null,
+                }}
+            />
+            <Tabs.Screen
+                name="active-job"
+                options={{
+                    tabBarIcon: ({ color }) => <MaterialCommunityIcons name="progress-wrench" size={24} color={color} />,
                     tabBarButton: () => null,
                 }}
             />

@@ -29,6 +29,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as Linking from 'expo-linking';
 
 import { useTheme } from '../../src/hooks/useTheme';
 import { t, useLanguageStore } from '../../src/i18n';
@@ -309,6 +310,7 @@ export default function RequestScreen() {
                     customerId: pi.customerId || undefined,
                     merchantDisplayName: 'Fuerza Home Services',
                     allowsDelayedPaymentMethods: false,
+                    returnURL: Linking.createURL('stripe-redirect'),
                 });
 
                 if (initError) {
@@ -370,10 +372,26 @@ export default function RequestScreen() {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
+            console.log('[Booking] Job created response:', JSON.stringify(data, null, 2));
+
+            const jobId = data.job?.id ?? data.id ?? data.jobId;
+
             router.replace({
-                pathname: '/(tabs)/jobs',
-                params: { jobId: data.id },
+                pathname: '/(tabs)/tracking',
+                params: { jobId },
             });
+
+            // Reset form state for next request
+            setStep(1);
+            setSelectedTrade(null);
+            setSelectedTile(null);
+            setDescription('');
+            setPhotos([]);
+            setAddress('');
+            setLocationDetected(false);
+            setEstimate(null);
+            setCleaningPriceHint(null);
+            setError(null);
         } catch {
             setError(t('request.bookingFailed'));
         } finally {

@@ -67,7 +67,12 @@ interface JobState {
     jobs: Job[];
     loading: boolean;
     refreshing: boolean;
+    // Earnings
+    todayEarnings: number;
+    weekEarnings: number;
+    pendingPayout: number;
     fetchJobs: (role: string) => Promise<void>;
+    fetchEarnings: () => Promise<void>;
     initializeSocketListeners: () => void;
     cleanupSocketListeners: () => void;
     addJob: (job: Job) => void;
@@ -82,11 +87,40 @@ export const useJobStore = create<JobState>((set, get) => ({
     jobs: [],
     loading: false,
     refreshing: false,
+    todayEarnings: 0,
+    weekEarnings: 0,
+    pendingPayout: 0,
+    fetchEarnings: async () => {
+        try {
+            const res = await api.get('/jobs/earnings/summary');
+            set({
+                todayEarnings: res.data.todayEarnings || 0,
+                weekEarnings: res.data.weekEarnings || 0,
+                pendingPayout: res.data.pendingPayout || 0,
+            });
+        } catch (error) {
+            console.error('Failed to fetch earnings', error);
+        }
+    },
     fetchJobs: async (role: string) => {
         set({ loading: true, refreshing: true });
         try {
-            const res = await api.get(role === 'TECHNICIAN' ? '/jobs/open' : '/jobs');
-            set({ jobs: res.data });
+            if (role === 'TECHNICIAN') {
+                // Fetch both open jobs (for accepting) and tech's own assigned jobs
+                const [openRes, myRes] = await Promise.all([
+                    api.get('/jobs/open'),
+                    api.get('/jobs'),
+                ]);
+                // Merge and deduplicate by id
+                const merged = new Map<string, Job>();
+                for (const j of [...myRes.data, ...openRes.data]) {
+                    merged.set(j.id, j);
+                }
+                set({ jobs: Array.from(merged.values()) });
+            } else {
+                const res = await api.get('/jobs');
+                set({ jobs: res.data });
+            }
         } catch (error) {
             console.error('Failed to fetch jobs', error);
         } finally {

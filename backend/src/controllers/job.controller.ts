@@ -292,22 +292,84 @@ export const acceptJob = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// Valid status transitions for technician-driven updates
+const VALID_TRANSITIONS: Record<string, string> = {
+    MATCHED: 'EN_ROUTE',
+    EN_ROUTE: 'ARRIVED',
+    ARRIVED: 'WORKING',
+    WORKING: 'COMPLETED',
+};
+
 export const updateJobStatus = async (req: AuthRequest, res: Response) => {
     try {
-        const { jobId, status } = req.body;
+        const { id } = req.params as { id: string };
+        const { status: newStatus } = req.body;
+        const technicianId = req.user.userId;
 
-        const job = await prisma.job.update({
-            where: { id: jobId },
-            data: { status },
+        if (!newStatus) {
+            return res.status(400).json({ error: 'status is required' });
+        }
+
+        // Fetch the job
+        const job = await prisma.job.findUnique({
+            where: { id },
+            include: {
+                customer: { include: { user: true } },
+                technician: { include: { user: true } },
+            },
         });
 
-        socketService.emitToUser(job.customerId, 'job:status', { jobId, status });
+        if (!job) {
+            return res.status(404).json({ error: 'Job not found' });
+        }
+
+        // Only the assigned technician can update
+        if (job.technicianId !== technicianId) {
+            return res.status(403).json({ error: 'Not authorized — you are not assigned to this job' });
+        }
+
+        // Validate transition
+        const expectedNext = VALID_TRANSITIONS[job.status];
+        if (!expectedNext || expectedNext !== newStatus) {
+            return res.status(400).json({
+                error: `Invalid transition: ${job.status} → ${newStatus}`,
+                expected: expectedNext || 'none (job already completed or cancelled)',
+            });
+        }
+
+        // Update job status
+        const updatedJob = await prisma.job.update({
+            where: { id },
+            data: { status: newStatus as JobStatus },
+            include: {
+                customer: { include: { user: true } },
+                technician: { include: { user: true } },
+                estimate: true,
+            },
+        });
+
+        // Emit to job room so the customer's tracking screen updates in real time
+        socketService.emitToRoom(`job_${id}`, 'job:status', { jobId: id, status: newStatus });
+
+        // Also emit directly to customer
+        socketService.emitToUser(job.customerId, 'job:status', { jobId: id, status: newStatus });
 
         // Push notification to customer (fire and forget)
-        sendJobStatusAlert(job.customerId, status, jobId).catch(console.error);
+        sendJobStatusAlert(job.customerId, newStatus, id).catch(console.error);
 
-        res.json(job);
+        // If COMPLETED → trigger payout to technician's Connect account
+        if (newStatus === 'COMPLETED') {
+            const payoutResult = await createPayout(id);
+            if (payoutResult.success) {
+                console.log(`[Payout] Transferred $${(payoutResult.payoutAmount! / 100).toFixed(2)} to technician ${technicianId}`);
+            } else {
+                console.error(`[Payout] Failed for job ${id}:`, payoutResult.error);
+            }
+        }
+
+        res.json(updatedJob);
     } catch (error) {
+        console.error('Update Job Status Error:', error);
         res.status(500).json({ error: 'Failed to update status' });
     }
 };
@@ -336,5 +398,63 @@ export const getEstimate = async (req: AuthRequest, res: Response) => {
     } catch (error) {
         console.error('Get Estimate Error:', error);
         res.status(500).json({ error: 'Failed to generate estimate' });
+    }
+};
+
+/**
+ * GET /api/jobs/earnings/summary
+ * Returns technician earnings: today, this week, pending payout.
+ */
+export const getEarningsSummary = async (req: AuthRequest, res: Response) => {
+    try {
+        const technicianId = req.user.userId;
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfWeek = new Date(startOfToday);
+        startOfWeek.setDate(startOfWeek.getDate() - 7);
+
+        // Today's completed jobs
+        const todayJobs = await prisma.job.findMany({
+            where: {
+                technicianId,
+                status: JobStatus.COMPLETED,
+                updatedAt: { gte: startOfToday },
+            },
+            select: { technicianPayout: true },
+        });
+
+        // This week's completed jobs
+        const weekJobs = await prisma.job.findMany({
+            where: {
+                technicianId,
+                status: JobStatus.COMPLETED,
+                updatedAt: { gte: startOfWeek },
+            },
+            select: { technicianPayout: true },
+        });
+
+        // Pending payouts (completed but not yet transferred)
+        const pendingJobs = await prisma.job.findMany({
+            where: {
+                technicianId,
+                status: JobStatus.COMPLETED,
+                payoutStatus: 'PENDING',
+            },
+            select: { technicianPayout: true },
+        });
+
+        const todayEarnings = todayJobs.reduce((sum, j) => sum + (j.technicianPayout || 0), 0);
+        const weekEarnings = weekJobs.reduce((sum, j) => sum + (j.technicianPayout || 0), 0);
+        const pendingPayout = pendingJobs.reduce((sum, j) => sum + (j.technicianPayout || 0), 0);
+
+        res.json({
+            todayEarnings,
+            weekEarnings,
+            pendingPayout,
+        });
+    } catch (error) {
+        console.error('Get Earnings Summary Error:', error);
+        res.status(500).json({ error: 'Failed to fetch earnings summary' });
     }
 };

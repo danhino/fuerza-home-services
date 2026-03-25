@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { createJob, getOpenJobs, acceptJob, updateJobStatus, getJobs, capturePayment, getEstimate } from '../controllers/job.controller';
+import { createJob, getOpenJobs, acceptJob, updateJobStatus, getJobs, capturePayment, getEstimate, getEarningsSummary } from '../controllers/job.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { createChangeOrder, getChangeOrderHistory } from '../controllers/changeOrder.controller';
 import { createReview } from '../controllers/review.controller';
@@ -14,7 +14,8 @@ router.post('/', authenticate, upload.array('photos', 10), createJob);
 router.get('/', authenticate, getJobs);
 router.get('/open', authenticate, getOpenJobs);
 router.post('/accept', authenticate, acceptJob);
-router.put('/status', authenticate, updateJobStatus);
+router.get('/earnings/summary', authenticate, getEarningsSummary);
+router.put('/:id/status', authenticate, updateJobStatus);
 router.get('/:id/change-orders', authenticate, getChangeOrderHistory);
 router.post('/:id/change-orders', authenticate, createChangeOrder);
 router.post('/:id/payments/capture', authenticate, capturePayment);

@@ -100,7 +100,7 @@ export async function createEphemeralKey(stripeCustomerId: string): Promise<stri
             { customer: stripeCustomerId },
             { apiVersion: '2026-01-28.clover' }
         );
-        return JSON.stringify(key);
+        return key.secret || null;
     } catch (err: any) {
         console.error('[PaymentService] ephemeralKey failed:', err.message);
         return null;

@@ -16,6 +16,17 @@ class SocketService {
                 console.log(`User ${userId} joined room ${userId}`);
             });
 
+            // Join a specific room (e.g. job_xxx for real-time tracking)
+            socket.on('join_room', (room: string) => {
+                socket.join(room);
+                console.log(`Socket ${socket.id} joined room ${room}`);
+            });
+
+            socket.on('leave_room', (room: string) => {
+                socket.leave(room);
+                console.log(`Socket ${socket.id} left room ${room}`);
+            });
+
             // ── Technician goes online — join the technicians room ──
             socket.on('technician_online', (data: {
                 technicianId: string;
@@ -112,6 +123,12 @@ class SocketService {
     public emitToUser(userId: string, event: string, data: any) {
         if (this.io) {
             this.io.to(userId).emit(event, data);
+        }
+    }
+
+    public emitToRoom(room: string, event: string, data: any) {
+        if (this.io) {
+            this.io.to(room).emit(event, data);
         }
     }
 }

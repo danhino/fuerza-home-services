@@ -185,7 +185,7 @@ export default function JobDetailScreen() {
             // Refresh job store so the dashboard shows the accepted job
             await useJobStore.getState().fetchJobs('TECHNICIAN');
             router.replace({
-                pathname: '/(tabs)/jobs',
+                pathname: '/(tabs)/active-job',
                 params: { jobId },
             });
         } catch {
