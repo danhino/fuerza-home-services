@@ -2,12 +2,32 @@ import { Response } from 'express';
 import { PrismaClient, JobStatus } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { socketService } from '../services/socket.service';
-import { captureHold, createPayout } from '../services/payment.service';
+import { captureHold, createPayout, refundPayment } from '../services/payment.service';
 import { calculatePricing, getTradeEstimate, getEstimateForTrade } from '../services/pricing.service';
 import { sendNewJobAlert, sendJobStatusAlert } from '../services/push.service';
 import { uploadPhoto } from '../services/storage.service';
 
 const prisma = new PrismaClient();
+
+// ─── Haversine distance filter ──────────────────────────────────────────────
+
+const RADIUS_MILES = 25;
+const toRad = (val: number) => (val * Math.PI) / 180;
+
+const isWithinRadius = (
+    lat1: number, lng1: number,
+    lat2: number, lng2: number,
+    radiusMiles: number
+): boolean => {
+    const R = 3958.8; // Earth radius in miles
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c <= radiusMiles;
+};
 
 export const capturePayment = async (req: AuthRequest, res: Response) => {
     try {
@@ -212,13 +232,26 @@ export const createJob = async (req: AuthRequest, res: Response) => {
             customerName: customer?.name,
         });
 
-        // Push notification to online technicians (fire and forget)
+        // Push notification to online technicians within 25 miles (fire and forget)
         const onlineTechs = await prisma.technicianProfile.findMany({
             where: { isOnline: true },
-            select: { userId: true },
+            select: { userId: true, currentLat: true, currentLng: true },
         });
-        const techIds = onlineTechs.map(t => t.userId);
-        sendNewJobAlert(techIds, job).catch(console.error);
+
+        const nearbyTechs = onlineTechs.filter((tech) => {
+            if (tech.currentLat == null || tech.currentLng == null) return false;
+            return isWithinRadius(
+                job.locationLat, job.locationLng,
+                tech.currentLat, tech.currentLng,
+                RADIUS_MILES
+            );
+        });
+
+        const techIds = nearbyTechs.map(t => t.userId);
+        if (techIds.length > 0) {
+            sendNewJobAlert(techIds, job).catch(console.error);
+        }
+        console.log(`[CreateJob] Notified ${techIds.length}/${onlineTechs.length} technicians within ${RADIUS_MILES} miles`);
 
         res.status(201).json(job);
     } catch (error) {
@@ -274,20 +307,58 @@ export const getJobs = async (req: AuthRequest, res: Response) => {
 
 export const acceptJob = async (req: AuthRequest, res: Response) => {
     try {
-        const technicianId = req.user.userId;
+        const userId = req.user.userId;
         const { jobId } = req.body;
 
+        if (!jobId) {
+            return res.status(400).json({ error: 'jobId is required' });
+        }
+
+        // 1. Verify the job exists
+        const existingJob = await prisma.job.findUnique({
+            where: { id: jobId },
+        });
+
+        if (!existingJob) {
+            return res.status(404).json({ error: 'Job not found' });
+        }
+
+        // 2. Check if already taken
+        if (existingJob.technicianId) {
+            return res.status(409).json({ error: 'Job already taken' });
+        }
+
+        // 3. Ensure the technician has a profile
+        const techProfile = await prisma.technicianProfile.findUnique({
+            where: { userId },
+        });
+
+        if (!techProfile) {
+            return res.status(403).json({ error: 'Technician profile not found. Please complete your profile first.' });
+        }
+
+        // 4. Accept the job
         const job = await prisma.job.update({
             where: { id: jobId },
             data: {
-                technicianId,
+                technicianId: userId,
                 status: JobStatus.MATCHED,
+            },
+            include: {
+                estimate: true,
+                customer: { include: { user: { select: { name: true, firstName: true, lastName: true, preferredLanguage: true } } } },
+                technician: { include: { user: { select: { name: true, firstName: true, lastName: true } } } },
             },
         });
 
+        // Notify customer
         socketService.emitToUser(job.customerId, 'job:matched', { job });
+        socketService.emitToRoom(`job_${jobId}`, 'job:status', { jobId, status: 'MATCHED' });
+
+        console.log(`[AcceptJob] Tech ${userId} accepted job ${jobId}`);
         res.json(job);
     } catch (error) {
+        console.error('Accept job error:', error);
         res.status(500).json({ error: 'Failed to accept job' });
     }
 };
@@ -458,3 +529,56 @@ export const getEarningsSummary = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Failed to fetch earnings summary' });
     }
 };
+
+export const cancelJob = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params as { id: string };
+        const userId = req.user.userId;
+
+        const job = await prisma.job.findUnique({
+            where: { id },
+        });
+
+        if (!job) {
+            return res.status(404).json({ error: 'Job not found' });
+        }
+
+        // Only the customer who created the job can cancel
+        if (job.customerId !== userId) {
+            return res.status(403).json({ error: 'Not authorized — only the customer can cancel this job' });
+        }
+
+        // Only allow cancellation for REQUESTED or MATCHED
+        const cancellableStatuses = ['REQUESTED', 'MATCHED'];
+        if (!cancellableStatuses.includes(job.status)) {
+            return res.status(400).json({
+                error: `Cannot cancel job in ${job.status} status. Only REQUESTED or MATCHED jobs can be cancelled.`,
+            });
+        }
+
+        // If payment was held, trigger refund
+        if (job.holdRef) {
+            const refunded = await refundPayment(job.holdRef);
+            console.log(`[CancelJob] Refund for job ${id}: ${refunded ? 'success' : 'failed or skipped'}`);
+        }
+
+        // Update job status
+        const updatedJob = await prisma.job.update({
+            where: { id },
+            data: { status: JobStatus.CANCELLED },
+        });
+
+        // If a technician was matched, notify them
+        if (job.technicianId) {
+            socketService.emitToUser(job.technicianId, 'job:cancelled', { jobId: id });
+            socketService.emitToRoom(`job_${id}`, 'job:cancelled', { jobId: id });
+        }
+
+        console.log(`[CancelJob] Job ${id} cancelled by customer ${userId}`);
+        res.json({ success: true, job: updatedJob });
+    } catch (error) {
+        console.error('Cancel job error:', error);
+        res.status(500).json({ error: 'Failed to cancel job' });
+    }
+};
+

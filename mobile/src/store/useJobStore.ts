@@ -12,6 +12,8 @@ export interface Job {
     trade: string;
     photos?: string[];
     address?: string;
+    locationLat?: number;
+    locationLng?: number;
     issueTag?: string;
     videoUrl?: string;
     customer?: { user: { name: string; firstName?: string; lastName?: string; preferredLanguage?: string } };
@@ -35,6 +37,10 @@ export interface Job {
     receiptEmailedAt?: string;
     warrantyDays?: number;
     review?: Review;
+    technicianPayout?: number;
+    serviceFee?: number;
+    updatedAt?: string;
+    createdAt?: string;
 }
 
 export interface Review {

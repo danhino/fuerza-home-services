@@ -343,6 +343,16 @@ const es = {
     'tracking.redirecting': 'Redirigiendo al recibo...',
     'tracking.call': 'Llamar',
     'tracking.message': 'Mensaje',
+    'tracking.cancelTitle': '¿Cancelar Solicitud?',
+    'tracking.cancelMsg': '¿Estás seguro de que quieres cancelar esta solicitud de servicio?',
+    'tracking.cancelRequest': 'Cancelar Solicitud',
+    'tracking.cancelError': 'Error al cancelar el trabajo',
+
+    // ── Profile & History ───────────────────────────
+    'profile.jobHistory': 'Historial de Trabajos',
+    'history.title': 'Historial de Trabajos',
+    'history.empty': 'No se encontraron trabajos anteriores.',
+    'history.loadError': 'Error al cargar el historial.',
 
     // ── Active Job ───────────────────────────────────
     'activeJob.title': 'Trabajo Activo',

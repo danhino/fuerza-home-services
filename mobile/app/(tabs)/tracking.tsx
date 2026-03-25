@@ -16,6 +16,8 @@ import {
     TouchableOpacity,
     Animated,
     Dimensions,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -29,6 +31,7 @@ import { StatusPill, JobStatus } from '../../src/components/ui/StatusPill';
 import { Avatar } from '../../src/components/ui/Avatar';
 import { Card } from '../../src/components/ui/Card';
 import { socketService } from '../../src/services/socket.service';
+import api from '../../src/services/api';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -62,8 +65,7 @@ const STEPS: { key: string; i18nKey: string }[] = [
     { key: 'COMPLETED', i18nKey: 'tracking.complete' },
 ];
 
-// Default coordinates (San Antonio — will be overridden by real data)
-const DEFAULT_CUSTOMER = { latitude: 29.4241, longitude: -98.4936 };
+// Default coordinates (fallback only — will be overridden by real job data)
 const DEFAULT_TECH = { latitude: 29.4320, longitude: -98.5000 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -86,11 +88,15 @@ export default function TrackingScreen() {
 
     const [techLocation, setTechLocation] = useState(DEFAULT_TECH);
     const [jobComplete, setJobComplete] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
     const celebrateAnim = useRef(new Animated.Value(0)).current;
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
-    // Customer address — use default for now
-    const customerLocation = DEFAULT_CUSTOMER;
+    // Customer address — use job's service address coordinates
+    const customerLocation = {
+        latitude: job?.locationLat || 29.4241,
+        longitude: job?.locationLng || -98.4936,
+    };
     const status = (job?.status || 'MATCHED') as JobStatus;
     const trade = job?.trade || 'PLUMBER';
     const tradeColor = TRADE_COLOR[trade] || '#3B82F6';
@@ -142,6 +148,34 @@ export default function TrackingScreen() {
         };
     }, [jobId, updateJobStatus]);
 
+    // ── Handle cancellation ──────────────────────────────────────────────────
+
+    const handleCancel = () => {
+        Alert.alert(
+            t('tracking.cancelTitle') || 'Cancel Request?',
+            t('tracking.cancelMsg') || 'Are you sure you want to cancel this service request?',
+            [
+                { text: t('common.no') || 'No', style: 'cancel' },
+                {
+                    text: t('common.yes') || 'Yes, Cancel',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            setIsCancelling(true);
+                            await api.put(`/jobs/${jobId}/cancel`);
+                            // Job is cancelled, trigger store update or just go back
+                            router.replace('/(tabs)/');
+                        } catch (error) {
+                            Alert.alert(t('common.error') || 'Error', t('tracking.cancelError') || 'Failed to cancel job');
+                        } finally {
+                            setIsCancelling(false);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     // ── Handle completion ────────────────────────────────────────────────────
 
     useEffect(() => {
@@ -164,6 +198,19 @@ export default function TrackingScreen() {
 
         return () => clearTimeout(timer);
     }, [status, jobComplete, celebrateAnim, jobId, router]);
+
+    // ── Animate map to job location when data loads ──────────────────────────
+
+    useEffect(() => {
+        if (job?.locationLat && job?.locationLng && mapRef.current) {
+            mapRef.current.animateToRegion({
+                latitude: job.locationLat,
+                longitude: job.locationLng,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+            }, 1000);
+        }
+    }, [job?.locationLat, job?.locationLng]);
 
     // ── Fit map to both pins ─────────────────────────────────────────────────
 
@@ -357,6 +404,23 @@ export default function TrackingScreen() {
                         {t('tracking.problem')}
                     </Text>
                 </TouchableOpacity>
+
+                {/* Cancel Request (Only REQUESTED/MATCHED) */}
+                {(status === 'REQUESTED' || status === 'MATCHED') && (
+                    <TouchableOpacity
+                        style={{ marginTop: theme.spacing.md, alignSelf: 'center' }}
+                        onPress={handleCancel}
+                        disabled={isCancelling}
+                    >
+                        {isCancelling ? (
+                            <ActivityIndicator color={theme.colors.error} size="small" />
+                        ) : (
+                            <Text style={[theme.typography.bodySm, { color: theme.colors.error, fontWeight: '600' }]}>
+                                {t('tracking.cancelRequest') || 'Cancel Request'}
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* ═══ JOB COMPLETE OVERLAY ═══ */}

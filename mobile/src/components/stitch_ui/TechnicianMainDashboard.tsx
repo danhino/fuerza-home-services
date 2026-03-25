@@ -483,11 +483,13 @@ export function TechnicianMainDashboard() {
                                             {t(TRADE_LABEL[trade] || 'home.map.plumbing')} — {job.customer?.user?.name || job.customerName || '—'}
                                         </Text>
                                         <Text style={[theme.typography.caption, { color: theme.colors.textTertiary }]}>
-                                            {new Date(job.changeOrders?.[0]?.createdAt || Date.now()).toLocaleDateString()}
+                                            {new Date(job.updatedAt || job.createdAt || Date.now()).toLocaleDateString()}
                                         </Text>
                                     </View>
                                     <Text style={[theme.typography.titleSm, { color: '#22C55E' }]}>
-                                        ${(job.finalAmount || job.estimate?.currentAmount || 0).toFixed(2)}
+                                        {job.technicianPayout
+                                            ? `$${job.technicianPayout.toFixed(2)}`
+                                            : '$—'}
                                     </Text>
                                 </View>
                             );

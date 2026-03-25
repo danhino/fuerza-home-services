@@ -342,6 +342,16 @@ const en = {
     'tracking.redirecting': 'Redirecting to receipt...',
     'tracking.call': 'Call',
     'tracking.message': 'Message',
+    'tracking.cancelTitle': 'Cancel Request?',
+    'tracking.cancelMsg': 'Are you sure you want to cancel this service request?',
+    'tracking.cancelRequest': 'Cancel Request',
+    'tracking.cancelError': 'Failed to cancel job',
+
+    // ── Profile & History ───────────────────────────
+    'profile.jobHistory': 'Job History',
+    'history.title': 'Job History',
+    'history.empty': 'No past jobs found.',
+    'history.loadError': 'Failed to load history.',
 
     // ── Active Job ───────────────────────────────────
     'activeJob.title': 'Active Job',
@@ -396,6 +406,7 @@ const en = {
     'home.map.handyman': 'Handyman',
     'home.map.recenter': 'Recenter',
     'home.map.yourLocation': 'Your Location',
+
 };
 
 export default en;

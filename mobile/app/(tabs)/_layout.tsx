@@ -123,6 +123,13 @@ export default function TabLayout() {
                     tabBarButton: () => null,
                 }}
             />
+            <Tabs.Screen
+                name="job-history"
+                options={{
+                    tabBarIcon: ({ color }) => <MaterialCommunityIcons name="history" size={24} color={color} />,
+                    tabBarButton: () => null,
+                }}
+            />
         </Tabs>
     );
 }

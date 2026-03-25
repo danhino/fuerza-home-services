@@ -343,3 +343,18 @@ export async function captureHold(holdRef: string, amountCents?: number): Promis
         return false;
     }
 }
+
+/**
+ * Refund a payment intent (for job cancellation).
+ */
+export async function refundPayment(paymentIntentId: string): Promise<boolean> {
+    try {
+        if (!paymentIntentId) return false;
+        const refund = await stripe.refunds.create({ payment_intent: paymentIntentId });
+        console.log(`[PaymentService] Refund created: ${refund.id} for PI ${paymentIntentId}`);
+        return refund.status === 'succeeded' || refund.status === 'pending';
+    } catch (err: any) {
+        console.error('[PaymentService] Refund failed:', err.message);
+        return false;
+    }
+}

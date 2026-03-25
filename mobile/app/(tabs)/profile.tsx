@@ -164,6 +164,18 @@ export default function ProfileScreen() {
                     </View>
                 )}
 
+                {/* Job History Link */}
+                <TouchableOpacity 
+                    style={[styles.sectionRow, { justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: borderColor }]} 
+                    onPress={() => router.push('/(tabs)/job-history')}
+                >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <Ionicons name="time-outline" size={24} color={textColor} />
+                        <Text style={[styles.info, { color: textColor, marginBottom: 0 }]}>{t('profile.jobHistory') || 'Job History'}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={24} color={borderColor} />
+                </TouchableOpacity>
+
                 {/* Language Selector */}
                 <View style={styles.sectionRow}>
                     <Text style={[styles.info, { color: textColor }]}>{t('profile.language')}:</Text>
