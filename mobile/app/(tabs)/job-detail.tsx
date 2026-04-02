@@ -177,11 +177,13 @@ export default function JobDetailScreen() {
 
     // ── Actions ──────────────────────────────────────────────────────────────
 
+
     const handleAccept = useCallback(async () => {
         setAccepting(true);
         setError(null);
+        
         try {
-            await api.post('/api/jobs/accept', { jobId });
+            await api.post('/jobs/accept', { jobId });
             // Refresh job store so the dashboard shows the accepted job
             await useJobStore.getState().fetchJobs('TECHNICIAN');
             router.replace({

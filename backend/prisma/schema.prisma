@@ -18,7 +18,10 @@ enum Trade {
   PLUMBER
   ELECTRICIAN
   CLEANING
+  HVAC
   POOL
+  HOUSE_CLEANING
+  GENERAL_HANDYMAN
 }
 
 enum JobStatus {
