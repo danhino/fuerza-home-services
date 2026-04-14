@@ -130,6 +130,35 @@ export default function TabLayout() {
                     tabBarButton: () => null,
                 }}
             />
+            {/* New 5-step booking flow — hidden from tab bar */}
+            <Tabs.Screen
+                name="service-select"
+                options={{
+                    tabBarIcon: ({ color }) => <MaterialCommunityIcons name="format-list-bulleted" size={24} color={color} />,
+                    tabBarButton: () => null,
+                }}
+            />
+            <Tabs.Screen
+                name="service-questions"
+                options={{
+                    tabBarIcon: ({ color }) => <MaterialCommunityIcons name="clipboard-list-outline" size={24} color={color} />,
+                    tabBarButton: () => null,
+                }}
+            />
+            <Tabs.Screen
+                name="service-estimate"
+                options={{
+                    tabBarIcon: ({ color }) => <MaterialCommunityIcons name="tag-outline" size={24} color={color} />,
+                    tabBarButton: () => null,
+                }}
+            />
+            <Tabs.Screen
+                name="booking-confirmed"
+                options={{
+                    tabBarIcon: ({ color }) => <MaterialCommunityIcons name="check-decagram" size={24} color={color} />,
+                    tabBarButton: () => null,
+                }}
+            />
         </Tabs>
     );
 }
