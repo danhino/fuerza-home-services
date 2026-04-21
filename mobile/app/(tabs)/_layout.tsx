@@ -103,13 +103,6 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="receipt"
-                options={{
-                    tabBarIcon: ({ color }) => <MaterialCommunityIcons name="receipt" size={24} color={color} />,
-                    tabBarButton: () => null,
-                }}
-            />
-            <Tabs.Screen
                 name="job-accepted"
                 options={{
                     tabBarIcon: ({ color }) => <MaterialCommunityIcons name="check-circle" size={24} color={color} />,

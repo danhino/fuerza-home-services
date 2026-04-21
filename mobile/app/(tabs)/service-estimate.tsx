@@ -69,6 +69,15 @@ export default function PriceEstimateScreen() {
         );
     }
 
+    const CATEGORY_TO_TRADE: Record<string, string> = {
+        'electrical':  'ELECTRICAL',
+        'plumbing':    'PLUMBING',
+        'hvac':        'HVAC',
+        'general':     'GENERAL_HANDYMAN',
+        'appliances':  'GENERAL_HANDYMAN',
+        'landscaping': 'GENERAL_HANDYMAN',
+    };
+
     const handleBook = async () => {
         setBooking(true);
         try {
@@ -87,8 +96,10 @@ export default function PriceEstimateScreen() {
             // TODO: Upload photos to Cloudflare R2 here and replace URIs with CDN URLs.
             // const uploadedUrls = await uploadPhotosToR2(photos);
 
+            const trade = CATEGORY_TO_TRADE[service.category] ?? 'GENERAL_HANDYMAN';
+
             const res = await api.post('/jobs', {
-                trade: service.category.toUpperCase(),
+                trade,
                 description,
                 address: user?.address ?? 'Address on file',
                 lat: location?.coords.latitude ?? 0,
