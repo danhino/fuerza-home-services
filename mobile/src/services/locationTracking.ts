@@ -16,8 +16,9 @@ const LOCATION_TASK = 'background-location-task';
 // Must be defined at module level (outside any component).
 TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: any) => {
     if (error) {
-        // Code 1 = permission denied — ignore silently, don't crash
-        if (error.code !== 1) {
+        // Code 0 = kCLErrorLocationUnknown — transient, resolves on its own
+        // Code 1 = kCLErrorDenied — permission denied
+        if (error.code !== 0 && error.code !== 1) {
             console.error('[Location] Background task error:', error);
         }
         return;

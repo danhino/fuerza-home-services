@@ -57,13 +57,8 @@ export default function ProfileScreen() {
     const handleSetupPayouts = useCallback(async () => {
         setOnboarding(true);
         try {
-            // Get the base API URL to pass real HTTP endpoints to Stripe
-            // which redirect back to our custom deep links
-            const apiUrl = api.defaults.baseURL || 'http://localhost:3000/api';
-            const { data } = await api.post('/payments/connect/onboard', {
-                returnUrl: `${apiUrl}/payments/connect/return`,
-                refreshUrl: `${apiUrl}/payments/connect/refresh`,
-            });
+            // returnUrl/refreshUrl are now built server-side from BACKEND_URL env var
+            const { data } = await api.post('/payments/connect/onboard');
 
             if (data.success && data.url) {
                 await WebBrowser.openBrowserAsync(data.url);
@@ -78,12 +73,7 @@ export default function ProfileScreen() {
                 );
             }
         } catch {
-            Alert.alert(
-                language === 'es' ? 'Error' : 'Error',
-                language === 'es'
-                    ? 'Error de conexión. Intenta de nuevo.'
-                    : 'Connection error. Please try again.'
-            );
+            // api.ts interceptor already shows an alert for network/server errors
         } finally {
             setOnboarding(false);
         }

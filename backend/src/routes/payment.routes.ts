@@ -140,12 +140,13 @@ router.post('/connect/onboard', authenticate, async (req: Request, res: Response
             return res.status(500).json({ success: false, error: result.error });
         }
 
-        // Generate onboarding link
-        const { returnUrl, refreshUrl } = req.body;
+        // Generate onboarding link — always build URLs server-side from BACKEND_URL
+        // so we never pass a plain-HTTP LAN IP to Stripe (which rejects non-localhost HTTP).
+        const base = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
         const resultUrl = await createAccountLink(
             result.accountId,
-            returnUrl || 'https://localhost:3000/api/payments/connect/return',
-            refreshUrl || 'https://localhost:3000/api/payments/connect/refresh'
+            `${base}/api/payments/connect/return`,
+            `${base}/api/payments/connect/refresh`
         );
 
         if (resultUrl.error) {
