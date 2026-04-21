@@ -6,7 +6,7 @@
  *
  * Route params: { jobId: string }
  */
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View,
     Text,
@@ -18,14 +18,15 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 
 import { useTheme } from '../../src/hooks/useTheme';
 import { t, useLanguageStore } from '../../src/i18n';
-import { useJobStore, Job } from '../../src/store/useJobStore';
+import { useJobStore } from '../../src/store/useJobStore';
 import { Avatar } from '../../src/components/ui/Avatar';
 import { Card } from '../../src/components/ui/Card';
 import { Button } from '../../src/components/ui/Button';
+import { LoadingOverlay } from '../../src/components/ui/LoadingOverlay';
 import api from '../../src/services/api';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -59,20 +60,50 @@ export default function JobAcceptedScreen() {
 
     useLanguageStore((s) => s.language);
 
-    const job = useJobStore((s) => s.jobs.find((j) => j.id === jobId));
+    const jobFromStore = useJobStore((s) => s.jobs.find((j) => j.id === jobId));
 
     // ── State ────────────────────────────────────────────────────────────────
 
+    const [jobData, setJobData] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
     const [isCancelling, setIsCancelling] = useState(false);
+
+    // ── Initial load ─────────────────────────────────────────────────────────
+
+    useEffect(() => {
+        if (jobFromStore) {
+            setJobData(jobFromStore);
+            setLoading(false);
+            return;
+        }
+        if (!jobId) { setLoading(false); return; }
+        api.get(`/jobs/${jobId}`)
+            .then(res => {
+                setJobData(res.data);
+                setLoading(false);
+            })
+            .catch(() => setLoading(false));
+    }, [jobId, jobFromStore]);
+
+    // ── Re-fetch on focus (catch tech-accept while screen was open) ──────────
+
+    useFocusEffect(
+        useCallback(() => {
+            if (!jobId) return;
+            api.get(`/jobs/${jobId}`)
+                .then(res => setJobData(res.data))
+                .catch(() => {});
+        }, [jobId])
+    );
 
     // ── Derived data ─────────────────────────────────────────────────────────
 
-    const trade = job?.trade || 'PLUMBER';
+    const trade = jobData?.trade || 'PLUMBER';
     const tradeColor = TRADE_COLOR[trade] || '#3B82F6';
-    const techName = job?.technician?.user?.name || job?.technician?.user?.firstName || 'Technician';
-    const techRating = job?.technician?.user?.rating || 5.0;
-    const serviceFee = job?.estimate?.currentAmount || job?.estimateLow || 0;
-    const address = job?.address || 'Service Address';
+    const techName = jobData?.technician?.user?.name || jobData?.technician?.user?.firstName || 'Technician';
+    const techRating = jobData?.technician?.user?.rating || 5.0;
+    const serviceFee = jobData?.estimate?.currentAmount || jobData?.estimateLow || 0;
+    const address = jobData?.address || 'Service Address';
 
     // Static ETA (could be enhanced with actual calculation from backend in future)
     const estimatedArrivalText = '20–40 minutes';
@@ -124,6 +155,7 @@ export default function JobAcceptedScreen() {
             style={[styles.root, { backgroundColor: theme.colors.background }]}
             edges={['top', 'left', 'right']}
         >
+            <LoadingOverlay visible={loading} />
             {/* Header with back button */}
             <View style={[styles.header, { paddingHorizontal: theme.spacing.lg }]}>
                 <TouchableOpacity
@@ -132,7 +164,7 @@ export default function JobAcceptedScreen() {
                 >
                     <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={[theme.typography.titleMd, { color: theme.colors.textPrimary, flex: 1, textAlign: 'center' }]}>
+                <Text style={[theme.typography.titleSm, { color: theme.colors.textPrimary, flex: 1, textAlign: 'center' }]}>
                     {t('jobAccepted.title') || 'Technician On The Way'}
                 </Text>
                 <View style={{ width: 24 }} />
@@ -158,10 +190,10 @@ export default function JobAcceptedScreen() {
 
                 {/* Technician card */}
                 <Card
-                    style={[
+                    style={StyleSheet.flatten([
                         styles.techCard,
                         { marginTop: theme.spacing.xl, backgroundColor: theme.colors.surface },
-                    ]}
+                    ])}
                 >
                     <View style={styles.techHeader}>
                         <Avatar name={techName} size="lg" />
@@ -197,10 +229,10 @@ export default function JobAcceptedScreen() {
 
                 {/* Job summary */}
                 <Card
-                    style={[
+                    style={StyleSheet.flatten([
                         styles.summaryCard,
                         { marginTop: theme.spacing.lg, backgroundColor: theme.colors.surface },
-                    ]}
+                    ])}
                 >
                     <Text style={[theme.typography.caption, { color: theme.colors.textTertiary }]}>
                         {t('jobAccepted.jobSummary') || 'Job Summary'}
@@ -272,7 +304,7 @@ export default function JobAcceptedScreen() {
                     <Ionicons name="chatbubble-outline" size={18} color="#FFFFFF" />
                     <Text
                         style={[
-                            theme.typography.buttonMd,
+                            theme.typography.button,
                             { color: '#FFFFFF', marginLeft: theme.spacing.sm },
                         ]}
                     >
@@ -299,7 +331,7 @@ export default function JobAcceptedScreen() {
                             <Ionicons name="close-circle-outline" size={18} color={theme.colors.error} />
                             <Text
                                 style={[
-                                    theme.typography.buttonMd,
+                                    theme.typography.button,
                                     { color: theme.colors.error, marginLeft: theme.spacing.sm },
                                 ]}
                             >

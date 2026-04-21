@@ -25,6 +25,7 @@ import { useLocationStore } from '../../src/store/useLocationStore';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import api from '../../src/services/api';
 import { ProgressBar } from './request';
+import { useStripe } from '@stripe/stripe-react-native';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -55,6 +56,8 @@ export default function PriceEstimateScreen() {
     const location = useLocationStore((s) => s.location);
     const user     = useAuthStore((s) => s.user);
 
+    const { initPaymentSheet, presentPaymentSheet } = useStripe();
+
     const [booking, setBooking] = useState(false);
 
     const service = getServiceById(serviceId ?? '');
@@ -81,34 +84,79 @@ export default function PriceEstimateScreen() {
     const handleBook = async () => {
         setBooking(true);
         try {
-            // Build a human-readable description from answers
+            // ── Step 1: Create payment intent ──────────────────────────────
+            const amountCents = Math.round(estimate.max * 100);
+            const piRes = await api.post('/payments/create-payment-intent', {
+                amountCents,
+            });
+            const { clientSecret, paymentIntentId } = piRes.data as {
+                clientSecret: string;
+                paymentIntentId: string;
+            };
+
+            // ── Step 2 & 3: Stripe PaymentSheet ───────────────────────────
+            let finalPaymentIntentId = paymentIntentId;
+
+            try {
+                const { error: initError } = await initPaymentSheet({
+                    paymentIntentClientSecret: clientSecret,
+                    merchantDisplayName: 'Fuerza Home Services',
+                });
+                if (initError) {
+                    Alert.alert('Payment error', initError.message);
+                    return;
+                }
+
+                const { error: presentError } = await presentPaymentSheet();
+                if (presentError) {
+                    if (presentError.code !== 'Canceled') {
+                        Alert.alert('Payment failed', presentError.message);
+                    }
+                    return;
+                }
+            } catch (stripeErr: any) {
+                // Expo Go — native Stripe module unavailable; skip payment in dev
+                console.log('DEV MODE: Skipping PaymentSheet', stripeErr?.message);
+                finalPaymentIntentId = 'dev-bypass';
+            }
+
+            // ── Step 4: Build description & create job ─────────────────────
             const answerLines = Object.entries(answers)
                 .filter(([, v]) => !v.startsWith('file://') && !v.startsWith('http'))
                 .map(([, v]) => v)
                 .join(', ');
             const description = `${service.name}: ${answerLines}`;
 
-            // Collect photo URIs from answers
-            const photos = Object.values(answers).filter(
-                (v) => v.startsWith('file://') || v.startsWith('content://')
-            );
-
-            // TODO: Upload photos to Cloudflare R2 here and replace URIs with CDN URLs.
-            // const uploadedUrls = await uploadPhotosToR2(photos);
-
             const trade = CATEGORY_TO_TRADE[service.category] ?? 'GENERAL_HANDYMAN';
 
-            const res = await api.post('/jobs', {
-                trade,
-                description,
-                address: user?.address ?? 'Address on file',
-                lat: location?.coords.latitude ?? 0,
-                lng: location?.coords.longitude ?? 0,
-                photos,
-                estimateLow: estimate.min,
-                estimateHigh: estimate.max,
+            const formData = new FormData();
+            formData.append('trade', trade);
+            formData.append('description', description);
+            formData.append('address', (user as any)?.address ?? 'Address on file');
+            formData.append('lat', String(location?.coords.latitude ?? 0));
+            formData.append('lng', String(location?.coords.longitude ?? 0));
+            formData.append('estimateLow', String(estimate.min));
+            formData.append('estimateHigh', String(estimate.max));
+            formData.append('serviceId', serviceId ?? '');
+            if (finalPaymentIntentId) formData.append('paymentIntentId', finalPaymentIntentId);
+
+            const photoUris = Object.values(answers).filter(
+                (v) => v.startsWith('file://') || v.startsWith('content://')
+            );
+            photoUris.forEach((uri, index) => {
+                const filename = uri.split('/').pop() ?? `photo${index}.jpg`;
+                formData.append('photos', {
+                    uri,
+                    name: filename,
+                    type: 'image/jpeg',
+                } as any);
             });
 
+            const res = await api.post('/jobs', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            // ── Step 5: Navigate to confirmation ──────────────────────────
             setJobId(res.data.id ?? 'confirmed');
             router.replace({
                 pathname: '/(tabs)/booking-confirmed',

@@ -65,10 +65,12 @@ export const sendJobStatusAlert = async (
     const msg = statusMessages[status];
     if (!msg) return;
 
+    const screen = status === 'MATCHED' ? 'job-accepted' : 'tracking';
+
     await sendPushNotification(
         user.pushToken,
         isSpanish ? msg.es : msg.en,
         isSpanish ? `ID de trabajo: ${jobId}` : `Job ID: ${jobId}`,
-        { jobId, screen: 'tracking' }
+        { jobId, screen }
     );
 };
