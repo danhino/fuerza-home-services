@@ -58,11 +58,13 @@ export async function getOrCreateStripeCustomer(
 /**
  * Create a PaymentIntent for the mobile PaymentSheet.
  * Does NOT confirm — the PaymentSheet handles card entry + confirmation.
+ * Uses manual capture: funds are authorized at booking and captured on completion.
  */
 export async function createPaymentIntent(
     amountCents: number,
     stripeCustomerId: string,
-    currency = 'usd'
+    currency = 'usd',
+    jobId?: string
 ): Promise<PaymentIntentResult> {
     if (!process.env.STRIPE_SECRET_KEY) {
         return { success: false, error: 'Stripe is not configured' };
@@ -76,9 +78,10 @@ export async function createPaymentIntent(
         const paymentIntent = await stripe.paymentIntents.create({
             amount: amountCents,
             currency,
+            capture_method: 'manual', // authorize only, don't capture
             customer: stripeCustomerId,
             automatic_payment_methods: { enabled: true },
-            metadata: { source: 'fuerza_booking' },
+            metadata: { source: 'fuerza_booking', jobId: jobId || '', bookingFee: '2.99' },
         });
 
         return {
@@ -249,6 +252,28 @@ export async function createPayout(jobId: string): Promise<{
             data: { payoutStatus: 'FAILED' },
         }).catch(() => { });
 
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Transfer an exact amount (in cents) to a technician's Connect account.
+ */
+export async function createTransfer(
+    destinationAccountId: string,
+    amountCents: number,
+    jobId: string
+): Promise<{ success: boolean; transferId?: string; error?: string }> {
+    try {
+        const transfer = await stripe.transfers.create({
+            amount: amountCents,
+            currency: 'usd',
+            destination: destinationAccountId,
+            metadata: { jobId },
+        });
+        return { success: true, transferId: transfer.id };
+    } catch (err: any) {
+        console.error('[PaymentService] createTransfer failed:', err.message);
         return { success: false, error: err.message };
     }
 }

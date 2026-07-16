@@ -4,6 +4,7 @@ import { createJob, getOpenJobs, acceptJob, updateJobStatus, getJobs, capturePay
 import { authenticate } from '../middleware/auth.middleware';
 import { createChangeOrder, getChangeOrderHistory } from '../controllers/changeOrder.controller';
 import { createReview } from '../controllers/review.controller';
+import { createDispute } from '../controllers/dispute.controller';
 import { getReceipt } from '../controllers/receipt.controller';
 
 const router = Router();
@@ -21,6 +22,7 @@ router.get('/:id/change-orders', authenticate, getChangeOrderHistory);
 router.post('/:id/change-orders', authenticate, createChangeOrder);
 router.post('/:id/payments/capture', authenticate, capturePayment);
 router.post('/:id/reviews', authenticate, createReview);
+router.post('/:id/dispute', authenticate, createDispute);
 router.get('/:id/receipt', authenticate, getReceipt);
 
 export default router;

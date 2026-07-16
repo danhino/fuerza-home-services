@@ -7,6 +7,7 @@ import { socketService } from './services/socket.service';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import jobRoutes from './routes/job.routes';
+import { startExpiryJob } from './jobs/expireJobs';
 
 process.on('unhandledRejection', (reason) => 
   console.error('[UnhandledRejection]', reason));
@@ -42,9 +43,13 @@ import triageRoutes from './routes/triage.routes';
 import paymentRoutes from './routes/payment.routes';
 import changeOrderRoutes from './routes/changeOrder.routes';
 import technicianRoutes from './routes/technician.routes';
+import reviewRoutes from './routes/review.routes';
 
 // ... (existing code)
 
+// Review routes must come before /api/technicians — the technician router
+// applies authenticate to all its routes, but GET /technicians/:id/reviews is public.
+app.use('/api', reviewRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/jobs', jobRoutes);
@@ -59,6 +64,9 @@ app.get('/', (req, res) => {
 });
 
 socketService.init(io);
+
+// Expire stale REQUESTED jobs every 5 minutes
+startExpiryJob();
 
 // ── Global error handler — MUST be after all routes ──────────────────────────
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

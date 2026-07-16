@@ -2,8 +2,9 @@ import { Response } from 'express';
 import { PrismaClient, JobStatus } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { socketService } from '../services/socket.service';
-import { captureHold, createPayout, refundPayment } from '../services/payment.service';
+import { captureHold, createPayout, createTransfer, refundPayment } from '../services/payment.service';
 import { calculatePricing, getTradeEstimate, getEstimateForTrade } from '../services/pricing.service';
+import { PLATFORM_COMMISSION_RATE, STRIPE_AUTH_WINDOW_DAYS, type CertificationLevel } from '../config/pricing.config';
 import { sendNewJobAlert, sendJobStatusAlert } from '../services/push.service';
 import { uploadPhoto } from '../services/storage.service';
 
@@ -155,6 +156,7 @@ export const createJob = async (req: AuthRequest, res: Response) => {
                 locationLat: parsedLat,
                 locationLng: parsedLng,
                 status: JobStatus.REQUESTED,
+                expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 min
                 issueTag: issueTag || null,
                 videoUrl: videoUrl || null,
                 photos: [], // Will be populated below with R2 URLs
@@ -167,6 +169,8 @@ export const createJob = async (req: AuthRequest, res: Response) => {
                 estimateLow: estimateLow ? Number(estimateLow) : (estimatedPrice ? Number(estimatedPrice) : pricing.serviceFee),
                 estimateHigh: estimateHigh ? Number(estimateHigh) : (estimatedPrice ? Number(estimatedPrice) : pricing.serviceFee),
                 paymentIntentId: paymentIntentId || null,
+                // Manual-capture PaymentIntent — funds authorized at booking, captured on completion
+                ...(paymentIntentId ? { paymentHoldStatus: 'AUTHORIZED' as const } : {}),
                 cleaningSize: cleaningSize || null,
                 // Pricing breakdown
                 serviceFee: pricing.serviceFee,
@@ -429,13 +433,83 @@ export const updateJobStatus = async (req: AuthRequest, res: Response) => {
         // Push notification to customer (fire and forget)
         sendJobStatusAlert(job.customerId, newStatus, id).catch(console.error);
 
-        // If COMPLETED → trigger payout to technician's Connect account
+        // If COMPLETED → capture the authorized payment and pay out the technician
         if (newStatus === 'COMPLETED') {
-            const payoutResult = await createPayout(id);
-            if (payoutResult.success) {
-                console.log(`[Payout] Transferred $${(payoutResult.payoutAmount! / 100).toFixed(2)} to technician ${technicianId}`);
+            // 1. Calculate final pricing
+            const pricing = calculatePricing(
+                job.finalPrice ?? job.serviceFee ?? 0,
+                (job.certificationLevel as CertificationLevel | null) ?? 'CERTIFIED'
+            );
+
+            // 2. Check the Stripe authorization is still valid (7-day window)
+            const authAge = Date.now() - new Date(job.createdAt).getTime();
+            const authWindowMs = STRIPE_AUTH_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+            if (job.paymentMethod === 'CASH') {
+                // Cash job — technician owes 12% of final price to Fuerza
+                const cashBase = job.finalPrice ?? job.serviceFee ?? 0;
+                const cashCommission = Math.round(cashBase * PLATFORM_COMMISSION_RATE * 100) / 100;
+                await prisma.job.update({
+                    where: { id },
+                    data: {
+                        finalPrice: cashBase,
+                        cashCommissionOwed: cashCommission,
+                        paymentHoldStatus: 'CASH_PENDING_COMMISSION',
+                    },
+                });
+                // TODO Phase 2: invoice technician for commission
             } else {
-                console.error(`[Payout] Failed for job ${id}:`, payoutResult.error);
+                const paymentIntentRef = job.paymentIntentId || job.holdRef;
+
+                if (authAge > authWindowMs) {
+                    // Authorization expired — ask the customer to re-enter payment method
+                    socketService.emitToUser(job.customerId, 'payment:reauthorize_required', { jobId: job.id });
+                    console.warn(`[Capture] Authorization expired for job ${id} — reauthorization requested`);
+                } else if (!paymentIntentRef) {
+                    console.error(`[Capture] No PaymentIntent on job ${id} — nothing to capture`);
+                } else {
+                    // Capture the authorized payment
+                    const captured = await captureHold(paymentIntentRef, Math.round(pricing.total * 100));
+
+                    if (!captured) {
+                        console.error(`[Capture] Failed to capture payment for job ${id}`);
+                    } else {
+                        // Transfer technician payout via Stripe Connect
+                        let transferId: string | undefined;
+                        if (job.technician?.stripeConnectAccountId) {
+                            const transfer = await createTransfer(
+                                job.technician.stripeConnectAccountId,
+                                Math.round(pricing.technicianPayout * 100),
+                                job.id
+                            );
+                            if (transfer.success) {
+                                transferId = transfer.transferId;
+                                console.log(`[Payout] Transferred $${pricing.technicianPayout.toFixed(2)} to technician ${technicianId}`);
+                            } else {
+                                console.error(`[Payout] Failed for job ${id}:`, transfer.error);
+                            }
+                        } else {
+                            console.error(`[Payout] Technician has no Connect account for job ${id}`);
+                        }
+
+                        // Update job with final amounts
+                        await prisma.job.update({
+                            where: { id },
+                            data: {
+                                finalPrice: pricing.serviceFee,
+                                capturedAt: new Date(),
+                                paymentHoldStatus: 'PAID',
+                                platformCommission: pricing.platformCommission,
+                                technicianPayout: pricing.technicianPayout,
+                                ...(transferId ? {
+                                    payoutStatus: 'PAID',
+                                    payoutAmount: Math.round(pricing.technicianPayout * 100),
+                                    transferId,
+                                } : { payoutStatus: 'PENDING' }),
+                            },
+                        });
+                    }
+                }
             }
         }
 

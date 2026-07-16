@@ -30,7 +30,7 @@ router.post('/create-payment-intent', authenticate, async (req: Request, res: Re
             return res.status(401).json({ success: false, error: 'Unauthorized' });
         }
 
-        const { amountCents } = req.body;
+        const { amountCents, jobId } = req.body;
 
         if (!amountCents || typeof amountCents !== 'number' || amountCents < 50) {
             return res.status(400).json({
@@ -55,14 +55,25 @@ router.post('/create-payment-intent', authenticate, async (req: Request, res: Re
         // Create ephemeral key for PaymentSheet
         const ephemeralKey = await createEphemeralKey(stripeCustomerId);
 
-        // Create PaymentIntent
-        const result = await createPaymentIntent(amountCents, stripeCustomerId);
+        // Create PaymentIntent (manual capture — authorized now, captured on completion)
+        const result = await createPaymentIntent(amountCents, stripeCustomerId, 'usd', jobId);
 
         if (!result.success) {
             return res.status(402).json({
                 success: false,
                 error: result.error || 'Payment intent creation failed',
             });
+        }
+
+        // If tied to an existing job, mark its payment as authorized
+        if (jobId) {
+            await prisma.job.update({
+                where: { id: jobId },
+                data: {
+                    paymentIntentId: result.paymentIntentId,
+                    paymentHoldStatus: 'AUTHORIZED',
+                },
+            }).catch((err) => console.error('[PaymentRoute] Failed to mark job AUTHORIZED:', err.message));
         }
 
         return res.json({
