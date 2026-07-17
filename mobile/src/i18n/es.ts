@@ -410,6 +410,64 @@ const es = {
     'home.map.handyman': 'Mantenimiento',
     'home.map.recenter': 'Recentrar',
     'home.map.yourLocation': 'Tu ubicación',
+
+    // ── Certification ────────────────────────────────
+    'cert.certified': 'Certificado y Asegurado',
+    'cert.independent': 'Pro Independiente',
+    'cert.filter.all': 'Todos',
+    'cert.filter.certified': '✓ Certificados',
+    'cert.filter.independent': '⚡ Independientes',
+    'cert.nearby': '{certified} Certificados · {independent} Independientes cerca',
+    'cert.reviews': '⭐ {rating} · {count} reseñas',
+    'cert.typical': 'Típico: ${min}–${max}',
+    'cert.book': 'Reservar a {name}',
+    'cert.toggle.certified': 'Pros Certificados',
+    'cert.toggle.independent': 'Pros Independientes',
+
+    // ── Disclaimer ───────────────────────────────────
+    'disclaimer.certified.title': 'Antes de Reservar',
+    'disclaimer.certified.body': 'Fuerza te conecta con profesionales calificados. Aunque los técnicos Certificados tienen licencia y seguro, Fuerza Home Services no es responsable de:\n\n• Costo de piezas, materiales o suministros\n• Daños o condiciones preexistentes\n• Trabajo realizado fuera del alcance acordado\n• Daños incidentales o consecuentes\n\nEl pago se autoriza ahora y se cobra solo cuando tu trabajo esté completo.',
+    'disclaimer.certified.checkbox': 'Entiendo y acepto estos términos',
+    'disclaimer.certified.cta': 'Continuar con la Reserva',
+    'disclaimer.independent.title': 'Pro Independiente — Aviso Importante',
+    'disclaimer.independent.body': 'Este es un Pro Independiente que NO tiene licencia ni seguro a través de Fuerza. No somos responsables de:\n\n• Calidad del trabajo realizado\n• Costo de piezas, materiales o suministros\n• Daños a tu propiedad\n• Trabajo que no cumpla con estándares profesionales\n\nLos Pros Independientes están disponibles solo para: Mantenimiento General, Limpieza del Hogar y Jardinería.\n\nPara trabajos eléctricos, de plomería, HVAC o piscina, selecciona un técnico Certificado.',
+    'disclaimer.independent.checkbox': 'Entiendo los riesgos y deseo continuar',
+    'disclaimer.independent.cta': 'Continuar de Todos Modos',
+    'disclaimer.independent.showCertified': 'Mostrar Pros Certificados',
+    'disclaimer.cancel': 'Cancelar',
+
+    // ── Payment Method ───────────────────────────────
+    'payment.methodTitle': 'Método de Pago',
+    'payment.inApp': 'Pagar en la App',
+    'payment.inAppDesc': 'Pago seguro cobrado al completar',
+    'payment.mostPopular': 'Más popular',
+    'payment.cash': 'Efectivo',
+    'payment.cashDesc': 'Paga directamente al técnico. Aplica tarifa de servicio del 12% al precio final estimado.',
+    'payment.authNote': '⚠ Tu tarjeta será autorizada por hasta ${amount} + $2.99 de tarifa de reserva. Sin cargo hasta completar el trabajo. El técnico puede ajustar el precio en sitio.',
+    'payment.cashNote': '⚠ Pagarás directamente al técnico en efectivo. Aplica una tarifa de plataforma del 12% al precio final estimado.',
+    'payment.viewTerms': 'Ver términos',
+
+    // ── Active Job: price adjust / decline ───────────
+    'activeJob.adjustPrice': 'Ajustar Precio',
+    'activeJob.currentPrice': 'Precio acordado actual',
+    'activeJob.newPrice': 'Nuevo precio',
+    'activeJob.reason': 'Motivo (requerido)',
+    'activeJob.sendToCustomer': 'Enviar al Cliente',
+    'activeJob.priceChangeSent': 'Cambio de precio enviado al cliente',
+    'activeJob.priceChangeFailed': 'No se pudo enviar el cambio de precio',
+    'activeJob.declineOnsite': 'Rechazar en Sitio',
+    'activeJob.declineWarning': 'Rechazar después de llegar afectará tu tasa de aceptación. ¿Estás seguro?',
+    'activeJob.declineFailed': 'No se pudo rechazar el trabajo',
+
+    // ── Receipts (service/bookingFee/totalCharged defined above) ────
+    'receipt.paidInCash': '(pagado en efectivo)',
+    'receipt.platformFee12': 'Tarifa de plataforma (12%)',
+    'receipt.feeOwed': 'Tarifa adeudada a Fuerza',
+
+    // ── Jobs: expired / book again ───────────────────
+    'jobs.expired': 'Solicitud Expirada',
+    'jobs.tryAgain': 'Intentar de Nuevo',
+    'jobs.bookAgain': 'Reservar a {name} de Nuevo',
 };
 
 export default es;

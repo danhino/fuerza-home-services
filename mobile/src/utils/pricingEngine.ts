@@ -173,6 +173,43 @@ const PRICING: Record<string, ServicePricing> = {
             },
         },
     },
+
+    standard_cleaning: {
+        base: [80, 150],
+        rules: {
+            home_size: {
+                '2BR (700–1,100 sq ft)':    [30, 50],
+                '3BR (1,100–1,800 sq ft)':  [60, 100],
+                '4BR+ (1,800+ sq ft)':      [100, 160],
+            },
+            cleaning_type: {
+                'Deep clean':              [40, 80],
+                'Move-in / Move-out':      [60, 120],
+                'Post-construction':       [80, 150],
+            },
+            extras: {
+                'Inside fridge':           [15, 25],
+                'Inside oven':             [15, 25],
+                'Interior windows':        [20, 35],
+                'Laundry (wash + fold)':   [25, 40],
+            },
+        },
+    },
+
+    deep_cleaning: {
+        base: [150, 280],
+        rules: {
+            home_size: {
+                '2BR (700–1,100 sq ft)':   [50, 80],
+                '3BR (1,100–1,800 sq ft)': [90, 140],
+                '4BR+ (1,800+ sq ft)':     [140, 220],
+            },
+            last_cleaned: {
+                '6–12 months ago':        [30, 60],
+                'Over a year / never':    [60, 120],
+            },
+        },
+    },
 };
 
 // ─── Public API ───────────────────────────────────────────────────────────────

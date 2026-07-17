@@ -19,11 +19,12 @@ export interface Job {
     customer?: { user: { name: string; firstName?: string; lastName?: string; preferredLanguage?: string } };
     technician?: { user: { name: string; firstName?: string; lastName?: string } };
     estimate?: { currentAmount: number };
+    technicianId?: string;
     // Included in socket payloads
     paymentProvider?: 'STRIPE' | 'SQUARE' | 'NONE';
     holdRef?: string;
     holdAmount?: number;
-    paymentHoldStatus?: 'NONE' | 'PENDING' | 'HOLD_PENDING' | 'HELD' | 'CAPTURED' | 'PAID' | 'FAILED';
+    paymentHoldStatus?: 'NONE' | 'PENDING' | 'HOLD_PENDING' | 'HELD' | 'AUTHORIZED' | 'CAPTURED' | 'PAID' | 'CASH_PENDING_COMMISSION' | 'FAILED';
     customerPreferredLanguage?: string;
     customerName?: string;
     // Estimate range for technician earnings display
@@ -39,6 +40,13 @@ export interface Job {
     review?: Review;
     technicianPayout?: number;
     serviceFee?: number;
+    // Phase 1: certification / payment-method / expiry fields
+    paymentMethod?: 'IN_APP' | 'CASH';
+    cashCommissionOwed?: number;
+    finalPrice?: number;
+    capturedAt?: string;
+    expiresAt?: string;
+    certificationLevel?: 'CERTIFIED' | 'NON_CERTIFIED';
     updatedAt?: string;
     createdAt?: string;
 }

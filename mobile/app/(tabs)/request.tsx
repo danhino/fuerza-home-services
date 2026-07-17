@@ -5,7 +5,7 @@
  * Displays a 2-column grid of service categories.
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -18,7 +18,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { CATEGORIES, Category, getServiceCountByCategory } from '../../src/data/servicesCatalog';
-import { useBookingStore } from '../../src/store/useBookingStore';
+import { useBookingStore, BookingCertificationLevel } from '../../src/store/useBookingStore';
+import { DisclaimerModal } from '../../src/components/DisclaimerModal';
+import { t } from '../../src/i18n';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -82,14 +84,77 @@ const progressStyles = StyleSheet.create({
 
 const serviceCounts = getServiceCountByCategory();
 
+/** Categories Independent Pros may serve (general handyman / house cleaning / landscaping) */
+const INDEPENDENT_CATEGORY_IDS = ['general', 'house_cleaning', 'landscaping'];
+
 export default function CategorySelectScreen() {
     const router = useRouter();
     const reset = useBookingStore((s) => s.reset);
+    const acceptDisclaimer = useBookingStore((s) => s.acceptDisclaimer);
 
-    // Always reset when entering Step 1
+    // Certification tab — defaults to CERTIFIED
+    const [certTab, setCertTab] = useState<BookingCertificationLevel>('CERTIFIED');
+    const [disclaimerVisible, setDisclaimerVisible] = useState(false);
+    const [disclaimerFor, setDisclaimerFor] = useState<BookingCertificationLevel>('CERTIFIED');
+
+    // Always reset when entering Step 1 — but preserve direct-booking prefill
+    // (map "Book {name}" flow / "Book Again") which sets state before navigating here.
     useEffect(() => {
+        const s = useBookingStore.getState();
+        const prefill = {
+            disclaimerAccepted: s.disclaimerAccepted,
+            disclaimerAcceptedAt: s.disclaimerAcceptedAt,
+            certificationLevelSelected: s.certificationLevelSelected,
+            selectedTechnicianId: s.selectedTechnicianId,
+            lastServiceId: s.lastServiceId,
+        };
         reset();
+        if (prefill.disclaimerAccepted || prefill.selectedTechnicianId || prefill.lastServiceId) {
+            useBookingStore.setState(prefill);
+        }
+        if (prefill.certificationLevelSelected === 'NON_CERTIFIED') {
+            setCertTab('NON_CERTIFIED');
+        }
+        // Gate the flow behind the disclaimer if not yet accepted
+        if (!prefill.disclaimerAccepted) {
+            setDisclaimerFor(prefill.certificationLevelSelected ?? 'CERTIFIED');
+            setDisclaimerVisible(true);
+        }
     }, []);
+
+    const handleTabSwitch = (tab: BookingCertificationLevel) => {
+        if (tab === certTab) return;
+        if (tab === 'NON_CERTIFIED') {
+            // Switching to Independent Pros re-triggers the warning disclaimer
+            setDisclaimerFor('NON_CERTIFIED');
+            setDisclaimerVisible(true);
+        } else {
+            setCertTab('CERTIFIED');
+            useBookingStore.setState({ certificationLevelSelected: 'CERTIFIED' });
+        }
+    };
+
+    const handleDisclaimerAccept = () => {
+        acceptDisclaimer(disclaimerFor);
+        setCertTab(disclaimerFor);
+        setDisclaimerVisible(false);
+    };
+
+    const handleDisclaimerDecline = () => {
+        setDisclaimerVisible(false);
+        const accepted = useBookingStore.getState().disclaimerAccepted;
+        if (disclaimerFor === 'NON_CERTIFIED') {
+            // "Show Certified Pros Instead"
+            setCertTab('CERTIFIED');
+            if (!accepted) {
+                setDisclaimerFor('CERTIFIED');
+                setDisclaimerVisible(true);
+            }
+        } else if (!accepted) {
+            // Declined the entry disclaimer — leave the booking flow
+            router.back();
+        }
+    };
 
     const handleCategoryPress = (cat: Category) => {
         router.push({
@@ -97,6 +162,11 @@ export default function CategorySelectScreen() {
             params: { categoryId: cat.id },
         });
     };
+
+    const visibleCategories =
+        certTab === 'NON_CERTIFIED'
+            ? CATEGORIES.filter((c) => INDEPENDENT_CATEGORY_IDS.includes(c.id))
+            : CATEGORIES;
 
     return (
         <SafeAreaView style={styles.safe} edges={['top']}>
@@ -107,13 +177,35 @@ export default function CategorySelectScreen() {
             </View>
             <ProgressBar step={1} />
 
+            {/* ── Certified / Independent toggle ── */}
+            <View style={styles.certToggleRow}>
+                <TouchableOpacity
+                    style={[styles.certToggleBtn, certTab === 'CERTIFIED' && styles.certToggleBtnActive]}
+                    onPress={() => handleTabSwitch('CERTIFIED')}
+                    activeOpacity={0.8}
+                >
+                    <Text style={[styles.certToggleText, certTab === 'CERTIFIED' && styles.certToggleTextActive]}>
+                        {t('cert.toggle.certified')}
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.certToggleBtn, certTab === 'NON_CERTIFIED' && styles.certToggleBtnActiveAmber]}
+                    onPress={() => handleTabSwitch('NON_CERTIFIED')}
+                    activeOpacity={0.8}
+                >
+                    <Text style={[styles.certToggleText, certTab === 'NON_CERTIFIED' && styles.certToggleTextActive]}>
+                        {t('cert.toggle.independent')}
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
             {/* ── Category grid ── */}
             <ScrollView
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.grid}>
-                    {CATEGORIES.map((cat) => (
+                    {visibleCategories.map((cat) => (
                         <TouchableOpacity
                             key={cat.id}
                             style={styles.card}
@@ -130,6 +222,14 @@ export default function CategorySelectScreen() {
                     ))}
                 </View>
             </ScrollView>
+
+            {/* ── Booking disclaimer ── */}
+            <DisclaimerModal
+                visible={disclaimerVisible}
+                certificationLevel={disclaimerFor}
+                onAccept={handleDisclaimerAccept}
+                onDecline={handleDisclaimerDecline}
+            />
         </SafeAreaView>
     );
 }
@@ -154,6 +254,35 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.6)',
         fontSize: 11,
         marginTop: 2,
+    },
+    certToggleRow: {
+        flexDirection: 'row',
+        marginHorizontal: 24,
+        marginTop: 16,
+        backgroundColor: '#ecedf0',
+        borderRadius: 12,
+        padding: 4,
+        gap: 4,
+    },
+    certToggleBtn: {
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 9,
+        alignItems: 'center',
+    },
+    certToggleBtnActive: {
+        backgroundColor: FZ.navy,
+    },
+    certToggleBtnActiveAmber: {
+        backgroundColor: FZ.orange,
+    },
+    certToggleText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: FZ.muted,
+    },
+    certToggleTextActive: {
+        color: '#ffffff',
     },
     scroll: {
         padding: 24,

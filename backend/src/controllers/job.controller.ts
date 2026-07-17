@@ -6,6 +6,7 @@ import { captureHold, createPayout, createTransfer, refundPayment } from '../ser
 import { calculatePricing, getTradeEstimate, getEstimateForTrade } from '../services/pricing.service';
 import { PLATFORM_COMMISSION_RATE, STRIPE_AUTH_WINDOW_DAYS, type CertificationLevel } from '../config/pricing.config';
 import { sendNewJobAlert, sendJobStatusAlert } from '../services/push.service';
+import { sendPushNotification } from '../services/firebase.service';
 import { uploadPhoto } from '../services/storage.service';
 
 const prisma = new PrismaClient();
@@ -138,10 +139,41 @@ export const capturePayment = async (req: AuthRequest, res: Response) => {
 export const createJob = async (req: AuthRequest, res: Response) => {
     try {
         const customerId = req.user.userId;
-        const { trade, description, address, lat, lng, photos, issueTag, videoUrl, holdRef, holdAmountCents, estimateLow, estimateHigh, estimatedPrice, paymentIntentId, cleaningSize } = req.body;
+        const {
+            trade, description, address, lat, lng, photos, issueTag, videoUrl,
+            holdRef, holdAmountCents, estimateLow, estimateHigh, estimatedPrice,
+            paymentIntentId, cleaningSize,
+            paymentMethod = 'IN_APP',
+            certificationLevel = 'CERTIFIED',
+            technicianId,
+            serviceId,
+        } = req.body;
 
-        // Calculate pricing breakdown — uses size-based rate for House Cleaning
-        const pricing = getEstimateForTrade(trade, cleaningSize);
+        // Cash jobs have no Stripe PaymentIntent; in-app jobs need one
+        // (holdRef accepted as the legacy authorization reference).
+        if (paymentMethod === 'IN_APP' && !paymentIntentId && !holdRef) {
+            return res.status(400).json({
+                error: 'paymentIntentId required for in-app payment',
+            });
+        }
+
+        // Preferred technician (direct booking from the map) must still be online
+        if (technicianId) {
+            const tech = await prisma.technicianProfile.findFirst({
+                where: { userId: technicianId, isOnline: true },
+            });
+            if (!tech) {
+                return res.status(400).json({
+                    error: 'Selected technician is no longer available',
+                });
+            }
+        }
+
+        const certLevel = certificationLevel === 'NON_CERTIFIED' ? 'NON_CERTIFIED' : 'CERTIFIED';
+
+        // Calculate pricing breakdown — size-based rate for House Cleaning,
+        // 0.75× multiplier for Independent Pros
+        const pricing = getEstimateForTrade(trade, cleaningSize, certLevel);
 
         // Parse lat/lng which may come as strings from multipart/form-data
         const parsedLat = typeof lat === 'string' ? parseFloat(lat) : lat;
@@ -172,6 +204,9 @@ export const createJob = async (req: AuthRequest, res: Response) => {
                 // Manual-capture PaymentIntent — funds authorized at booking, captured on completion
                 ...(paymentIntentId ? { paymentHoldStatus: 'AUTHORIZED' as const } : {}),
                 cleaningSize: cleaningSize || null,
+                paymentMethod,
+                certificationLevel: certLevel,
+                serviceId: serviceId || null, // stored for Try Again / Book Again flow
                 // Pricing breakdown
                 serviceFee: pricing.serviceFee,
                 bookingFee: pricing.bookingFee,
@@ -608,49 +643,81 @@ export const getEarningsSummary = async (req: AuthRequest, res: Response) => {
 export const cancelJob = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params as { id: string };
+        const { reason } = req.body ?? {};
         const userId = req.user.userId;
 
         const job = await prisma.job.findUnique({
             where: { id },
+            include: { technician: true },
         });
 
         if (!job) {
             return res.status(404).json({ error: 'Job not found' });
         }
 
-        // Only the customer who created the job can cancel
-        if (job.customerId !== userId) {
-            return res.status(403).json({ error: 'Not authorized — only the customer can cancel this job' });
-        }
+        const isCustomer = job.customerId === userId;
+        const isTechnician = job.technicianId === userId;
 
-        // Only allow cancellation for REQUESTED or MATCHED
-        const cancellableStatuses = ['REQUESTED', 'MATCHED'];
-        if (!cancellableStatuses.includes(job.status)) {
-            return res.status(400).json({
-                error: `Cannot cancel job in ${job.status} status. Only REQUESTED or MATCHED jobs can be cancelled.`,
+        // ── Customer cancels a REQUESTED / MATCHED job ───────────────────────
+        if (isCustomer && ['REQUESTED', 'MATCHED'].includes(job.status)) {
+            // If payment was held, trigger refund
+            if (job.holdRef) {
+                const refunded = await refundPayment(job.holdRef);
+                console.log(`[CancelJob] Refund for job ${id}: ${refunded ? 'success' : 'failed or skipped'}`);
+            }
+
+            const updatedJob = await prisma.job.update({
+                where: { id },
+                data: { status: JobStatus.CANCELLED },
             });
+
+            // If a technician was matched, notify them
+            if (job.technicianId) {
+                socketService.emitToUser(job.technicianId, 'job:cancelled', { jobId: id });
+                socketService.emitToRoom(`job_${id}`, 'job:cancelled', { jobId: id });
+            }
+
+            console.log(`[CancelJob] Job ${id} cancelled by customer ${userId}`);
+            return res.json({ success: true, job: updatedJob });
         }
 
-        // If payment was held, trigger refund
-        if (job.holdRef) {
-            const refunded = await refundPayment(job.holdRef);
-            console.log(`[CancelJob] Refund for job ${id}: ${refunded ? 'success' : 'failed or skipped'}`);
+        // ── Technician declines on-site (ARRIVED only) ───────────────────────
+        if (isTechnician && job.status === 'ARRIVED' && reason === 'technician_declined_onsite') {
+            await prisma.job.update({
+                where: { id },
+                data: {
+                    status: JobStatus.CANCELLED,
+                    technicianId: null, // free the job for rebooking
+                },
+            });
+
+            // Notify the customer in real time + push
+            socketService.emitToUser(job.customerId, 'job:cancelled', { jobId: id, reason });
+            socketService.emitToRoom(`job_${id}`, 'job:cancelled', { jobId: id, reason });
+
+            const customer = await prisma.user.findUnique({
+                where: { id: job.customerId },
+                select: { pushToken: true, preferredLanguage: true },
+            });
+            if (customer?.pushToken) {
+                const isSpanish = customer.preferredLanguage === 'es';
+                await sendPushNotification(
+                    customer.pushToken,
+                    isSpanish ? 'Técnico no pudo continuar' : 'Technician had to decline',
+                    isSpanish
+                        ? 'Tu técnico no pudo continuar. Por favor intenta reservar de nuevo.'
+                        : 'Your technician was unable to continue. Please try booking again.',
+                    { jobId: id, screen: 'jobs' }
+                );
+            }
+
+            console.log(`[CancelJob] Job ${id} declined on-site by technician ${userId}`);
+            return res.json({ success: true, message: 'Job declined on-site' });
         }
 
-        // Update job status
-        const updatedJob = await prisma.job.update({
-            where: { id },
-            data: { status: JobStatus.CANCELLED },
+        return res.status(403).json({
+            error: 'Not authorized to cancel this job at its current status',
         });
-
-        // If a technician was matched, notify them
-        if (job.technicianId) {
-            socketService.emitToUser(job.technicianId, 'job:cancelled', { jobId: id });
-            socketService.emitToRoom(`job_${id}`, 'job:cancelled', { jobId: id });
-        }
-
-        console.log(`[CancelJob] Job ${id} cancelled by customer ${userId}`);
-        res.json({ success: true, job: updatedJob });
     } catch (error) {
         console.error('Cancel job error:', error);
         res.status(500).json({ error: 'Failed to cancel job' });

@@ -10,6 +10,7 @@ import api from '../../src/services/api';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { useJobStore, Job, ChangeOrder, ChangeOrderItem } from '../../src/store/useJobStore';
+import { useBookingStore } from '../../src/store/useBookingStore';
 import { useThemeColor } from '../../src/hooks/useThemeColor';
 import { t, useLanguageStore } from '../../src/i18n';
 import { ScreenHeader, StatusBadge } from '../../src/components/stitch_ui';
@@ -27,6 +28,7 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'info' |
     WORKING: 'warning',
     COMPLETED: 'success',
     CANCELLED: 'danger',
+    EXPIRED: 'neutral',
 };
 
 export default function JobsScreen() {
@@ -191,13 +193,52 @@ export default function JobsScreen() {
     };
 
     const renderReceiptView = (job: Job) => {
+        const isCash = job.paymentMethod === 'CASH' || job.paymentHoldStatus === 'CASH_PENDING_COMMISSION';
+        const service = job.finalPrice ?? job.serviceFee ?? job.estimate?.currentAmount ?? job.estimateLow ?? 0;
+        const bookingFee = 2.99;
+        const totalCharged = job.finalAmount ? job.finalAmount / 100 : service + bookingFee;
+        const cashFee = job.cashCommissionOwed ?? Math.round(service * 0.12 * 100) / 100;
+
         return (
             <View style={styles.receiptContainer}>
                 <View style={styles.receiptHeader}>
                     <Ionicons name="checkmark-circle" size={48} color="#34C759" />
                     <Text style={styles.receiptTitle}>Payment Successful</Text>
                 </View>
-                <Text style={styles.receiptTotal}>${((job.finalAmount || 0) / 100).toFixed(2)}</Text>
+
+                {isCash ? (
+                    <>
+                        <View style={styles.receiptRow}>
+                            <Text style={styles.receiptLabel}>
+                                {t('receipt.service')} {t('receipt.paidInCash')}
+                            </Text>
+                            <Text style={styles.receiptValue}>${service.toFixed(2)}</Text>
+                        </View>
+                        <View style={styles.receiptRow}>
+                            <Text style={styles.receiptLabel}>{t('receipt.platformFee12')}</Text>
+                            <Text style={styles.receiptValue}>${cashFee.toFixed(2)}</Text>
+                        </View>
+                        <View style={[styles.receiptRow, styles.receiptTotalDivider]}>
+                            <Text style={styles.receiptLabelBold}>{t('receipt.feeOwed')}</Text>
+                            <Text style={styles.receiptValueBold}>${cashFee.toFixed(2)}</Text>
+                        </View>
+                    </>
+                ) : (
+                    <>
+                        <View style={styles.receiptRow}>
+                            <Text style={styles.receiptLabel}>{t('receipt.service')}</Text>
+                            <Text style={styles.receiptValue}>${service.toFixed(2)}</Text>
+                        </View>
+                        <View style={styles.receiptRow}>
+                            <Text style={styles.receiptLabel}>{t('receipt.bookingFee')}</Text>
+                            <Text style={styles.receiptValue}>${bookingFee.toFixed(2)}</Text>
+                        </View>
+                        <View style={[styles.receiptRow, styles.receiptTotalDivider]}>
+                            <Text style={styles.receiptLabelBold}>{t('receipt.totalCharged')}</Text>
+                            <Text style={styles.receiptValueBold}>${totalCharged.toFixed(2)} ✓</Text>
+                        </View>
+                    </>
+                )}
 
                 <View style={styles.receiptRow}>
                     <Text style={styles.receiptLabel}>Transaction ID</Text>
@@ -225,6 +266,40 @@ export default function JobsScreen() {
                 )}
             </View>
         );
+    };
+
+    // ── Expired jobs: status pill + "Try Again" ──────────────────────────────
+
+    const handleTryAgain = (job: Job) => {
+        // Reset the wizard; serviceId isn't stored on the Job, so route with the
+        // trade to start the request flow in the right category.
+        useBookingStore.getState().reset();
+        router.push({ pathname: '/(tabs)/request', params: { trade: job.trade } });
+    };
+
+    const renderExpired = (job: Job) => (
+        <View>
+            <View style={styles.cardHeader}>
+                <Text style={[styles.jobTitle, { color: textColor }]}>{job.trade}</Text>
+                <StatusBadge label={t('jobs.expired')} variant="neutral" />
+            </View>
+            <Text style={[styles.description, { color: textColor }]}>{job.description}</Text>
+            <TouchableOpacity style={styles.tryAgainButton} onPress={() => handleTryAgain(job)}>
+                <Ionicons name="refresh" size={18} color="#fff" />
+                <Text style={styles.buttonText}>{t('jobs.tryAgain')}</Text>
+            </TouchableOpacity>
+        </View>
+    );
+
+    // ── "Book {tech} Again" for completed jobs ───────────────────────────────
+
+    const handleBookAgain = (job: Job) => {
+        useBookingStore.getState().reset();
+        useBookingStore.setState({
+            selectedTechnicianId: job.technicianId ?? null,
+            lastServiceId: null,
+        });
+        router.push({ pathname: '/(tabs)/request', params: { trade: job.trade } });
     };
 
     const handlePaymentCapture = async (job: Job) => {
@@ -343,12 +418,19 @@ export default function JobsScreen() {
 
         const isTechnician = user?.role === 'TECHNICIAN';
         const isRequested = item.status === 'REQUESTED';
+        const isCustomer = user?.role === 'CUSTOMER';
+        const techFirstName =
+            item.technician?.user?.firstName ||
+            item.technician?.user?.name?.split(' ')[0] ||
+            'Pro';
 
         return (
             <View style={[styles.card, { backgroundColor: cardColor }]}>
-                {(user?.role === 'CUSTOMER' && item.status === 'COMPLETED' && (item.paymentHoldStatus === 'HELD' || item.paymentHoldStatus === 'HOLD_PENDING')) ? (
+                {(isCustomer && item.status === 'EXPIRED') ? (
+                    renderExpired(item)
+                ) : (isCustomer && item.status === 'COMPLETED' && (item.paymentHoldStatus === 'HELD' || item.paymentHoldStatus === 'HOLD_PENDING' || item.paymentHoldStatus === 'AUTHORIZED')) ? (
                     renderInvoice(item)
-                ) : (user?.role === 'CUSTOMER' && item.paymentHoldStatus === 'CAPTURED') ? (
+                ) : (isCustomer && (item.paymentHoldStatus === 'CAPTURED' || item.paymentHoldStatus === 'PAID' || item.paymentHoldStatus === 'CASH_PENDING_COMMISSION')) ? (
                     !item.review ? renderReviewForm(item) : renderReceiptView(item)
                 ) : (
                     <>
@@ -496,6 +578,14 @@ export default function JobsScreen() {
                             </TouchableOpacity>
                         )}
                     </>
+                )}
+
+                {/* Book the same technician again (customer, completed jobs) */}
+                {isCustomer && item.status === 'COMPLETED' && (item.technicianId || item.technician) && (
+                    <TouchableOpacity style={styles.bookAgainButton} onPress={() => handleBookAgain(item)}>
+                        <Ionicons name="repeat" size={18} color="#fff" />
+                        <Text style={styles.buttonText}>{t('jobs.bookAgain', { name: techFirstName })}</Text>
+                    </TouchableOpacity>
                 )}
             </View>
         );
@@ -645,6 +735,41 @@ const styles = StyleSheet.create({
     acceptButtonText: { ...Typography.button, color: '#fff' },
     buttonText: { ...Typography.bodySm, color: '#fff', fontWeight: '700' },
     empty: { ...Typography.bodyLg, textAlign: 'center', marginTop: 50 },
+
+    // Expired / book-again
+    tryAgainButton: {
+        marginTop: Spacing.md,
+        backgroundColor: Brand.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.sm,
+        paddingVertical: Spacing.md,
+        borderRadius: Radius.lg,
+        ...Elevation.low,
+    },
+    bookAgainButton: {
+        marginTop: Spacing.md,
+        backgroundColor: Brand.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.sm,
+        paddingVertical: Spacing.md,
+        borderRadius: Radius.lg,
+        ...Elevation.low,
+    },
+
+    // Receipt breakdown
+    receiptTotalDivider: {
+        borderTopWidth: 2,
+        borderTopColor: '#e5e5e5',
+        borderBottomWidth: 0,
+        paddingTop: Spacing.md,
+        marginBottom: Spacing.lg,
+    },
+    receiptLabelBold: { ...Typography.bodyLg, fontWeight: '700' },
+    receiptValueBold: { ...Typography.bodyLg, fontWeight: '700', color: '#34C759' },
 
     // Content
     contentSection: { marginTop: Spacing.sm, gap: Spacing.sm },

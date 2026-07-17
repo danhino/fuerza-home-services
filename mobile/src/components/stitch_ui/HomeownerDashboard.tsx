@@ -8,7 +8,7 @@
  *   Layer 3: Bottom floating panel (tech count + categories + CTA)
  *   Layer 4: Recenter FAB
  */
-import React, { useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useRef, useCallback, useEffect, useMemo, useState } from 'react';
 import {
     View,
     Text,
@@ -25,11 +25,13 @@ import { useRouter } from 'expo-router';
 
 import { useTheme } from '../../hooks/useTheme';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useMapStore, TradeFilter, TechnicianLocation } from '../../store/useMapStore';
+import { useMapStore, TradeFilter, TechnicianLocation, CertificationLevel } from '../../store/useMapStore';
 import { useLocationStore } from '../../store/useLocationStore';
+import { useBookingStore } from '../../store/useBookingStore';
 import { t, useLanguageStore } from '../../i18n';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
+import { DisclaimerModal } from '../DisclaimerModal';
 
 // ─── Re-exported types for backward compat with index.tsx ────────────────────
 
@@ -81,6 +83,35 @@ const TRADE_PIN_COLOR: Record<string, string> = {
     GENERAL_HANDYMAN: '#F97316',
 };
 
+const TRADE_I18N: Record<string, string> = {
+    PLUMBER: 'home.map.plumbing',
+    ELECTRICIAN: 'home.map.electrical',
+    HVAC: 'home.map.hvac',
+    POOL: 'home.map.pool',
+    HOUSE_CLEANING: 'home.map.cleaning',
+    GENERAL_HANDYMAN: 'home.map.handyman',
+};
+
+/** Typical price ranges per trade (dollars, CERTIFIED baseline) */
+const TRADE_PRICE_RANGE: Record<string, [number, number]> = {
+    PLUMBER: [110, 170],
+    ELECTRICIAN: [130, 200],
+    HVAC: [160, 240],
+    POOL: [95, 145],
+    HOUSE_CLEANING: [120, 180],
+    GENERAL_HANDYMAN: [75, 115],
+};
+
+const NON_CERTIFIED_MULTIPLIER = 0.75;
+
+type CertFilter = 'ALL' | CertificationLevel;
+
+const CERT_FILTERS: { key: CertFilter; i18nKey: string }[] = [
+    { key: 'ALL', i18nKey: 'cert.filter.all' },
+    { key: 'CERTIFIED', i18nKey: 'cert.filter.certified' },
+    { key: 'NON_CERTIFIED', i18nKey: 'cert.filter.independent' },
+];
+
 // ─── Default region (San Antonio, TX) ────────────────────────────────────────
 
 const DEFAULT_REGION = {
@@ -112,15 +143,27 @@ export function HomeownerDashboard() {
     const cleanupSocket = useMapStore((s) => s.cleanupSocketListeners);
     const fetchOnlineTechs = useMapStore((s) => s.fetchOnlineTechnicians);
 
+    // Certification filter + pending disclaimer state for direct booking
+    const [certFilter, setCertFilter] = useState<CertFilter>('ALL');
+    const [pendingTech, setPendingTech] = useState<TechnicianLocation | null>(null);
+
+    const acceptDisclaimer = useBookingStore((s) => s.acceptDisclaimer);
+    const setSelectedTechnician = useBookingStore((s) => s.setSelectedTechnician);
+
     // Derive filtered techs and online count via useMemo (stable references)
     const filteredTechs = useMemo(() => {
-        const all = Object.values(technicianLocations).filter((t) => t.isOnline);
+        let all = Object.values(technicianLocations).filter((t) => t.isOnline);
+        if (certFilter !== 'ALL') all = all.filter((t) => t.certificationLevel === certFilter);
         if (selectedTrade === 'ALL') return all;
         return all.filter((t) => t.trade === selectedTrade);
-    }, [technicianLocations, selectedTrade]);
+    }, [technicianLocations, selectedTrade, certFilter]);
 
-    const onlineCount = useMemo(() => {
-        return Object.values(technicianLocations).filter((t) => t.isOnline).length;
+    const { certifiedCount, independentCount } = useMemo(() => {
+        const online = Object.values(technicianLocations).filter((t) => t.isOnline);
+        return {
+            certifiedCount: online.filter((t) => t.certificationLevel === 'CERTIFIED').length,
+            independentCount: online.filter((t) => t.certificationLevel === 'NON_CERTIFIED').length,
+        };
     }, [technicianLocations]);
 
     // Subscribe to language for re-render
@@ -190,6 +233,28 @@ export function HomeownerDashboard() {
         }
     }, [router]);
 
+    // "Book {name}" from a map pin → disclaimer first, then the request flow
+    const handleBookTech = useCallback((tech: TechnicianLocation) => {
+        setPendingTech(tech);
+    }, []);
+
+    const handleDisclaimerAccept = useCallback(() => {
+        if (!pendingTech) return;
+        acceptDisclaimer(pendingTech.certificationLevel);
+        setSelectedTechnician(pendingTech.techId);
+        const trade = pendingTech.trade as TradeFilter;
+        setPendingTech(null);
+        navigateToRequest(trade);
+    }, [pendingTech, acceptDisclaimer, setSelectedTechnician, navigateToRequest]);
+
+    const handleDisclaimerDecline = useCallback(() => {
+        // For Independent Pros the secondary action is "Show Certified Pros Instead"
+        if (pendingTech?.certificationLevel === 'NON_CERTIFIED') {
+            setCertFilter('CERTIFIED');
+        }
+        setPendingTech(null);
+    }, [pendingTech]);
+
     // ── Render ────────────────────────────────────────────────────────────────
 
     return (
@@ -205,7 +270,7 @@ export function HomeownerDashboard() {
                 mapPadding={{ top: 0, right: 0, bottom: BOTTOM_PANEL_HEIGHT, left: 0 }}
             >
                 {filteredTechs.map((tech) => (
-                    <TechPin key={tech.techId} tech={tech} theme={theme} />
+                    <TechPin key={tech.techId} tech={tech} theme={theme} onBook={handleBookTech} />
                 ))}
             </MapView>
 
@@ -265,8 +330,52 @@ export function HomeownerDashboard() {
                 />
             </View>
 
-            {/* ═══ Layer 2: Trade Filter Chips ═══ */}
+            {/* ═══ Layer 2a: Certification Filter Chips ═══ */}
             <View style={[styles.chipRow, { top: insets.top + 60 }]}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: theme.spacing.lg }}
+                >
+                    {CERT_FILTERS.map((cf) => {
+                        const isSelected = certFilter === cf.key;
+                        return (
+                            <TouchableOpacity
+                                key={cf.key}
+                                onPress={() => setCertFilter(cf.key)}
+                                activeOpacity={0.8}
+                                style={[
+                                    styles.chip,
+                                    {
+                                        backgroundColor: isSelected
+                                            ? theme.colors.accent
+                                            : theme.colors.surface,
+                                        borderColor: isSelected
+                                            ? theme.colors.accent
+                                            : theme.colors.border,
+                                        borderRadius: theme.radius.full,
+                                    },
+                                    theme.shadow.card,
+                                ]}
+                            >
+                                <Text
+                                    style={[
+                                        theme.typography.label,
+                                        {
+                                            color: isSelected ? '#FFFFFF' : theme.colors.textPrimary,
+                                        },
+                                    ]}
+                                >
+                                    {t(cf.i18nKey)}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+            </View>
+
+            {/* ═══ Layer 2b: Trade Filter Chips ═══ */}
+            <View style={[styles.chipRow, { top: insets.top + 104 }]}>
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -369,7 +478,7 @@ export function HomeownerDashboard() {
                             },
                         ]}
                     >
-                        {t('home.map.techsNearby', { count: onlineCount })}
+                        {t('cert.nearby', { certified: certifiedCount, independent: independentCount })}
                     </Text>
                 </View>
 
@@ -440,6 +549,15 @@ export function HomeownerDashboard() {
                     />
                 </View>
             </View>
+
+            {/* ═══ Booking disclaimer ═══ */}
+            <DisclaimerModal
+                visible={pendingTech !== null}
+                certificationLevel={pendingTech?.certificationLevel ?? 'CERTIFIED'}
+                technicianName={pendingTech?.name}
+                onAccept={handleDisclaimerAccept}
+                onDecline={handleDisclaimerDecline}
+            />
         </View>
     );
 }
@@ -449,11 +567,21 @@ export function HomeownerDashboard() {
 interface TechPinProps {
     tech: TechnicianLocation;
     theme: ReturnType<typeof useTheme>;
+    onBook: (tech: TechnicianLocation) => void;
 }
 
-function TechPin({ tech, theme }: TechPinProps) {
+function TechPin({ tech, theme, onBook }: TechPinProps) {
     const pinColor = TRADE_PIN_COLOR[tech.trade] || '#6B7280';
     const pinIcon = TRADE_PIN_ICON[tech.trade] || 'wrench';
+
+    const isCertified = tech.certificationLevel === 'CERTIFIED';
+    const certColor = isCertified ? '#12895E' : '#F59E0B';
+    const firstName = tech.name.split(' ')[0] || tech.name;
+
+    const [rangeMin, rangeMax] = TRADE_PRICE_RANGE[tech.trade] || [95, 145];
+    const multiplier = isCertified ? 1 : NON_CERTIFIED_MULTIPLIER;
+    const min = Math.round(rangeMin * multiplier);
+    const max = Math.round(rangeMax * multiplier);
 
     return (
         <Marker
@@ -465,8 +593,9 @@ function TechPin({ tech, theme }: TechPinProps) {
                 <MaterialCommunityIcons name={pinIcon} size={16} color="#FFFFFF" />
             </View>
 
-            {/* Callout */}
-            <Callout tooltip>
+            {/* Callout — onPress covers the whole card (buttons inside callouts
+                don't receive touches on Android) */}
+            <Callout tooltip onPress={() => onBook(tech)}>
                 <View
                     style={[
                         styles.callout,
@@ -477,13 +606,55 @@ function TechPin({ tech, theme }: TechPinProps) {
                         theme.shadow.medium,
                     ]}
                 >
+                    {/* Avatar + name */}
+                    <View style={styles.calloutHeaderRow}>
+                        <Avatar name={tech.name} size="sm" />
+                        <Text
+                            style={[
+                                theme.typography.titleSm,
+                                { color: theme.colors.textPrimary, marginLeft: 8, flexShrink: 1 },
+                            ]}
+                            numberOfLines={1}
+                        >
+                            {tech.name}
+                        </Text>
+                    </View>
+
+                    {/* Certification badge */}
+                    <View style={[styles.certBadge, { backgroundColor: certColor + '18' }]}>
+                        <MaterialCommunityIcons
+                            name={isCertified ? 'shield-check' : 'alert-circle'}
+                            size={13}
+                            color={certColor}
+                        />
+                        <Text
+                            style={[
+                                theme.typography.captionMedium,
+                                { color: certColor, marginLeft: 4 },
+                            ]}
+                        >
+                            {isCertified ? t('cert.certified') : t('cert.independent')}
+                        </Text>
+                    </View>
+
+                    {/* Star rating */}
                     <Text
                         style={[
-                            theme.typography.titleSm,
-                            { color: theme.colors.textPrimary },
+                            theme.typography.captionMedium,
+                            { color: theme.colors.textPrimary, marginTop: 4 },
                         ]}
                     >
-                        {tech.name}
+                        {t('cert.reviews', { rating: tech.averageRating.toFixed(1), count: tech.reviewCount })}
+                    </Text>
+
+                    {/* Trade + price range */}
+                    <Text
+                        style={[
+                            theme.typography.caption,
+                            { color: theme.colors.textSecondary, marginTop: 2 },
+                        ]}
+                    >
+                        {t(TRADE_I18N[tech.trade] ?? 'home.map.handyman')}
                     </Text>
                     <Text
                         style={[
@@ -491,17 +662,18 @@ function TechPin({ tech, theme }: TechPinProps) {
                             { color: theme.colors.textSecondary, marginTop: 2 },
                         ]}
                     >
-                        {tech.trade}
+                        {t('cert.typical', { min, max })}
                     </Text>
-                    <View style={styles.ratingRow}>
-                        <Ionicons name="star" size={12} color="#F59E0B" />
-                        <Text
-                            style={[
-                                theme.typography.captionMedium,
-                                { color: theme.colors.textPrimary, marginLeft: 3 },
-                            ]}
-                        >
-                            {tech.rating.toFixed(1)}
+
+                    {/* Book button (visual — tap anywhere on callout triggers) */}
+                    <View
+                        style={[
+                            styles.bookBtn,
+                            { backgroundColor: theme.colors.accent, borderRadius: theme.radius.sm },
+                        ]}
+                    >
+                        <Text style={[theme.typography.captionMedium, { color: '#FFFFFF' }]}>
+                            {t('cert.book', { name: firstName })}
                         </Text>
                     </View>
                 </View>
@@ -609,8 +781,27 @@ const styles = StyleSheet.create({
 
     // Callout
     callout: {
-        padding: 10,
-        minWidth: 120,
+        padding: 12,
+        minWidth: 180,
+        maxWidth: 240,
+    },
+    calloutHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    certBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 999,
+        marginTop: 6,
+    },
+    bookBtn: {
+        alignItems: 'center',
+        paddingVertical: 8,
+        marginTop: 8,
     },
     ratingRow: {
         flexDirection: 'row',

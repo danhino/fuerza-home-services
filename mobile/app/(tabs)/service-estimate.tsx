@@ -26,6 +26,8 @@ import { useAuthStore } from '../../src/store/useAuthStore';
 import api from '../../src/services/api';
 import { ProgressBar } from './request';
 import { useStripe } from '@stripe/stripe-react-native';
+import { DisclaimerModal } from '../../src/components/DisclaimerModal';
+import { t } from '../../src/i18n';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -53,12 +55,18 @@ export default function PriceEstimateScreen() {
     const answers  = useBookingStore((s) => s.answers);
     const setJobId = useBookingStore((s) => s.setJobId);
 
+    const paymentMethod = useBookingStore((s) => s.paymentMethod);
+    const setPaymentMethod = useBookingStore((s) => s.setPaymentMethod);
+    const certificationLevel = useBookingStore((s) => s.certificationLevelSelected);
+    const selectedTechnicianId = useBookingStore((s) => s.selectedTechnicianId);
+
     const location = useLocationStore((s) => s.location);
     const user     = useAuthStore((s) => s.user);
 
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
     const [booking, setBooking] = useState(false);
+    const [termsVisible, setTermsVisible] = useState(false);
 
     const service = getServiceById(serviceId ?? '');
 
@@ -73,51 +81,55 @@ export default function PriceEstimateScreen() {
     }
 
     const CATEGORY_TO_TRADE: Record<string, string> = {
-        'electrical':  'ELECTRICAL',
-        'plumbing':    'PLUMBING',
-        'hvac':        'HVAC',
-        'general':     'GENERAL_HANDYMAN',
-        'appliances':  'GENERAL_HANDYMAN',
-        'landscaping': 'GENERAL_HANDYMAN',
+        'electrical':     'ELECTRICAL',
+        'plumbing':       'PLUMBING',
+        'hvac':           'HVAC',
+        'general':        'GENERAL_HANDYMAN',
+        'appliances':     'GENERAL_HANDYMAN',
+        'landscaping':    'GENERAL_HANDYMAN',
+        'house_cleaning': 'HOUSE_CLEANING',
     };
 
     const handleBook = async () => {
         setBooking(true);
         try {
-            // ── Step 1: Create payment intent ──────────────────────────────
-            const amountCents = Math.round(estimate.max * 100);
-            const piRes = await api.post('/payments/create-payment-intent', {
-                amountCents,
-            });
-            const { clientSecret, paymentIntentId } = piRes.data as {
-                clientSecret: string;
-                paymentIntentId: string;
-            };
+            let finalPaymentIntentId: string | null = null;
 
-            // ── Step 2 & 3: Stripe PaymentSheet ───────────────────────────
-            let finalPaymentIntentId = paymentIntentId;
-
-            try {
-                const { error: initError } = await initPaymentSheet({
-                    paymentIntentClientSecret: clientSecret,
-                    merchantDisplayName: 'Fuerza Home Services',
+            // ── Steps 1-3: authorize card (IN_APP only — cash skips Stripe) ──
+            if (paymentMethod === 'IN_APP') {
+                const amountCents = Math.round(estimate.max * 100);
+                const piRes = await api.post('/payments/create-payment-intent', {
+                    amountCents,
                 });
-                if (initError) {
-                    Alert.alert('Payment error', initError.message);
-                    return;
-                }
+                const { clientSecret, paymentIntentId } = piRes.data as {
+                    clientSecret: string;
+                    paymentIntentId: string;
+                };
 
-                const { error: presentError } = await presentPaymentSheet();
-                if (presentError) {
-                    if (presentError.code !== 'Canceled') {
-                        Alert.alert('Payment failed', presentError.message);
+                finalPaymentIntentId = paymentIntentId;
+
+                try {
+                    const { error: initError } = await initPaymentSheet({
+                        paymentIntentClientSecret: clientSecret,
+                        merchantDisplayName: 'Fuerza Home Services',
+                    });
+                    if (initError) {
+                        Alert.alert('Payment error', initError.message);
+                        return;
                     }
-                    return;
+
+                    const { error: presentError } = await presentPaymentSheet();
+                    if (presentError) {
+                        if (presentError.code !== 'Canceled') {
+                            Alert.alert('Payment failed', presentError.message);
+                        }
+                        return;
+                    }
+                } catch (stripeErr: any) {
+                    // Expo Go — native Stripe module unavailable; skip payment in dev
+                    console.log('DEV MODE: Skipping PaymentSheet', stripeErr?.message);
+                    finalPaymentIntentId = 'dev-bypass';
                 }
-            } catch (stripeErr: any) {
-                // Expo Go — native Stripe module unavailable; skip payment in dev
-                console.log('DEV MODE: Skipping PaymentSheet', stripeErr?.message);
-                finalPaymentIntentId = 'dev-bypass';
             }
 
             // ── Step 4: Build description & create job ─────────────────────
@@ -138,6 +150,9 @@ export default function PriceEstimateScreen() {
             formData.append('estimateLow', String(estimate.min));
             formData.append('estimateHigh', String(estimate.max));
             formData.append('serviceId', serviceId ?? '');
+            formData.append('paymentMethod', paymentMethod);
+            formData.append('certificationLevel', certificationLevel ?? 'CERTIFIED');
+            if (selectedTechnicianId) formData.append('technicianId', selectedTechnicianId);
             if (finalPaymentIntentId) formData.append('paymentIntentId', finalPaymentIntentId);
 
             const photoUris = Object.values(answers).filter(
@@ -223,12 +238,74 @@ export default function PriceEstimateScreen() {
                     </View>
                 </View>
 
+                {/* ── Payment method selector ── */}
+                <Text style={styles.payMethodTitle}>{t('payment.methodTitle')}</Text>
+
+                <TouchableOpacity
+                    style={[styles.payCard, paymentMethod === 'IN_APP' && styles.payCardSelected]}
+                    onPress={() => setPaymentMethod('IN_APP')}
+                    activeOpacity={0.8}
+                >
+                    <MaterialCommunityIcons
+                        name="credit-card"
+                        size={22}
+                        color={paymentMethod === 'IN_APP' ? FZ.orange : FZ.muted}
+                    />
+                    <View style={styles.payCardBody}>
+                        <View style={styles.payCardTitleRow}>
+                            <Text style={styles.payCardTitle}>{t('payment.inApp')}</Text>
+                            <View style={styles.popularBadge}>
+                                <Text style={styles.popularBadgeText}>{t('payment.mostPopular')}</Text>
+                            </View>
+                        </View>
+                        <Text style={styles.payCardDesc}>{t('payment.inAppDesc')}</Text>
+                    </View>
+                    <MaterialCommunityIcons
+                        name={paymentMethod === 'IN_APP' ? 'radiobox-marked' : 'radiobox-blank'}
+                        size={20}
+                        color={paymentMethod === 'IN_APP' ? FZ.orange : FZ.border}
+                    />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.payCard, paymentMethod === 'CASH' && styles.payCardSelected]}
+                    onPress={() => setPaymentMethod('CASH')}
+                    activeOpacity={0.8}
+                >
+                    <MaterialCommunityIcons
+                        name="cash"
+                        size={22}
+                        color={paymentMethod === 'CASH' ? FZ.orange : FZ.muted}
+                    />
+                    <View style={styles.payCardBody}>
+                        <Text style={styles.payCardTitle}>{t('payment.cash')}</Text>
+                        <Text style={styles.payCardDesc}>{t('payment.cashDesc')}</Text>
+                    </View>
+                    <MaterialCommunityIcons
+                        name={paymentMethod === 'CASH' ? 'radiobox-marked' : 'radiobox-blank'}
+                        size={20}
+                        color={paymentMethod === 'CASH' ? FZ.orange : FZ.border}
+                    />
+                </TouchableOpacity>
+
                 {/* ── Guarantee badge ── */}
                 <View style={styles.guaranteeBadge}>
                     <MaterialCommunityIcons name="shield-check" size={18} color={FZ.green} />
                     <Text style={styles.guaranteeText}>
                         No payment until job is complete
                     </Text>
+                </View>
+
+                {/* ── Compact disclaimer reminder ── */}
+                <View style={styles.reminderBox}>
+                    <Text style={styles.reminderText}>
+                        {paymentMethod === 'IN_APP'
+                            ? t('payment.authNote', { amount: estimate.max.toFixed(2) })
+                            : t('payment.cashNote')}
+                    </Text>
+                    <TouchableOpacity onPress={() => setTermsVisible(true)} activeOpacity={0.7}>
+                        <Text style={styles.viewTermsLink}>{t('payment.viewTerms')}</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* ── CTA ── */}
@@ -245,6 +322,14 @@ export default function PriceEstimateScreen() {
                     )}
                 </TouchableOpacity>
             </ScrollView>
+
+            {/* ── Full terms modal ── */}
+            <DisclaimerModal
+                visible={termsVisible}
+                certificationLevel={certificationLevel ?? 'CERTIFIED'}
+                onAccept={() => setTermsVisible(false)}
+                onDecline={() => setTermsVisible(false)}
+            />
         </SafeAreaView>
     );
 }
@@ -389,6 +474,83 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: FZ.orange,
     },
+    // Payment method selector
+    payMethodTitle: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: FZ.muted,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginTop: 4,
+    },
+    payCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        backgroundColor: FZ.card,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: FZ.border,
+        padding: 14,
+    },
+    payCardSelected: {
+        borderColor: FZ.orange,
+        backgroundColor: FZ.orangeLight,
+    },
+    payCardBody: {
+        flex: 1,
+        gap: 2,
+    },
+    payCardTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    payCardTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: FZ.text,
+    },
+    payCardDesc: {
+        fontSize: 11,
+        color: FZ.muted,
+        lineHeight: 15,
+    },
+    popularBadge: {
+        backgroundColor: FZ.green,
+        borderRadius: 8,
+        paddingHorizontal: 7,
+        paddingVertical: 2,
+    },
+    popularBadgeText: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: '#ffffff',
+        textTransform: 'uppercase',
+        letterSpacing: 0.3,
+    },
+
+    // Disclaimer reminder
+    reminderBox: {
+        backgroundColor: '#fef8ec',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#f6dfb2',
+        padding: 12,
+        gap: 6,
+    },
+    reminderText: {
+        fontSize: 11,
+        color: '#8a6116',
+        lineHeight: 16,
+    },
+    viewTermsLink: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: FZ.orangeDark,
+        textDecorationLine: 'underline',
+    },
+
     // Guarantee badge
     guaranteeBadge: {
         flexDirection: 'row',

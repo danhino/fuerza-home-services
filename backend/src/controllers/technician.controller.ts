@@ -46,6 +46,8 @@ export const getOnlineTechnicians = async (_req: AuthRequest, res: Response) => 
                     select: {
                         id: true,
                         name: true,
+                        firstName: true,
+                        lastName: true,
                         rating: true,
                     },
                 },
@@ -53,12 +55,15 @@ export const getOnlineTechnicians = async (_req: AuthRequest, res: Response) => 
         });
 
         const technicians = profiles.map((p) => ({
-            id: p.user.id,
-            name: p.user.name,
+            id: p.userId,
+            name: p.user?.name ?? p.user?.firstName ?? 'Technician',
             lat: p.currentLat ?? 0,
             lng: p.currentLng ?? 0,
             trade: p.trades.length > 0 ? p.trades[0] : 'PLUMBER',
             rating: p.user.rating,
+            certificationLevel: p.certificationLevel,
+            averageRating: p.averageRating,
+            reviewCount: p.reviewCount,
             isOnline: true,
         }));
 

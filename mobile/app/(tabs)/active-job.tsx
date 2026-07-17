@@ -19,6 +19,8 @@ import {
     Dimensions,
     Linking,
     Platform,
+    Alert,
+    TextInput,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -31,6 +33,7 @@ import { StatusPill, JobStatus } from '../../src/components/ui/StatusPill';
 import { Card } from '../../src/components/ui/Card';
 import { Button } from '../../src/components/ui/Button';
 import { Avatar } from '../../src/components/ui/Avatar';
+import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { socketService } from '../../src/services/socket.service';
 import api from '../../src/services/api';
 
@@ -102,6 +105,13 @@ export default function ActiveJobScreen() {
     const [error, setError] = useState<string | null>(null);
     const [jobComplete, setJobComplete] = useState(false);
     const celebrateAnim = useRef(new Animated.Value(0)).current;
+
+    // Adjust-price bottom sheet
+    const [adjustVisible, setAdjustVisible] = useState(false);
+    const [newPrice, setNewPrice] = useState('');
+    const [adjustReason, setAdjustReason] = useState('');
+    const [adjustSending, setAdjustSending] = useState(false);
+    const [declining, setDeclining] = useState(false);
 
     // ── Derived data ─────────────────────────────────────────────────────────
 
@@ -177,6 +187,73 @@ export default function ActiveJobScreen() {
         }) || `https://maps.google.com/?daddr=${encoded}`;
         Linking.openURL(url).catch(console.error);
     }, [address]);
+
+    // ── Adjust price (change order for the delta) ────────────────────────────
+
+    const handleSendPriceAdjust = useCallback(async () => {
+        const parsed = parseFloat(newPrice);
+        if (!jobId || isNaN(parsed) || parsed <= 0 || !adjustReason.trim()) return;
+
+        const delta = Math.round((parsed - serviceFee) * 100) / 100;
+        if (delta === 0) {
+            setAdjustVisible(false);
+            return;
+        }
+
+        setAdjustSending(true);
+        try {
+            await api.post(`/jobs/${jobId}/change-orders`, {
+                items: [
+                    {
+                        type: 'LABOR',
+                        description: adjustReason.trim(),
+                        quantity: 1,
+                        unitPrice: delta,
+                    },
+                ],
+            });
+            setAdjustVisible(false);
+            setNewPrice('');
+            setAdjustReason('');
+            Alert.alert(t('jobs.success'), t('activeJob.priceChangeSent'));
+        } catch (err: any) {
+            console.error('[ActiveJob] Price adjust failed:', err);
+            Alert.alert(t('home.error'), err?.response?.data?.error ?? t('activeJob.priceChangeFailed'));
+        } finally {
+            setAdjustSending(false);
+        }
+    }, [jobId, newPrice, adjustReason, serviceFee]);
+
+    // ── Decline on-site ──────────────────────────────────────────────────────
+
+    const handleDeclineOnsite = useCallback(() => {
+        Alert.alert(
+            t('activeJob.declineOnsite'),
+            t('activeJob.declineWarning'),
+            [
+                { text: t('request.cancel'), style: 'cancel' },
+                {
+                    text: t('activeJob.declineOnsite'),
+                    style: 'destructive',
+                    onPress: async () => {
+                        if (!jobId) return;
+                        setDeclining(true);
+                        try {
+                            await api.put(`/jobs/${jobId}/cancel`, {
+                                reason: 'technician_declined_onsite',
+                            });
+                            router.replace('/(tabs)');
+                        } catch (err: any) {
+                            console.error('[ActiveJob] Decline on-site failed:', err);
+                            Alert.alert(t('home.error'), err?.response?.data?.error ?? t('activeJob.declineFailed'));
+                        } finally {
+                            setDeclining(false);
+                        }
+                    },
+                },
+            ]
+        );
+    }, [jobId, router]);
 
     // ── Not found ────────────────────────────────────────────────────────────
 
@@ -382,6 +459,39 @@ export default function ActiveJobScreen() {
                     </TouchableOpacity>
                 )}
 
+                {/* ═══ ADJUST PRICE (on-site) ═══ */}
+                {(status === 'ARRIVED' || status === 'WORKING') && (
+                    <TouchableOpacity
+                        onPress={() => {
+                            setNewPrice(serviceFee ? String(serviceFee) : '');
+                            setAdjustReason('');
+                            setAdjustVisible(true);
+                        }}
+                        style={[styles.ghostBtn, { borderColor: theme.colors.accent, borderRadius: theme.radius.md, marginTop: theme.spacing.sm }]}
+                        activeOpacity={0.7}
+                    >
+                        <MaterialCommunityIcons name="currency-usd" size={18} color={theme.colors.accent} />
+                        <Text style={[theme.typography.bodySm, { color: theme.colors.accent, marginLeft: 8, fontWeight: '600' }]}>
+                            {t('activeJob.adjustPrice')}
+                        </Text>
+                    </TouchableOpacity>
+                )}
+
+                {/* ═══ DECLINE ON-SITE ═══ */}
+                {status === 'ARRIVED' && (
+                    <TouchableOpacity
+                        onPress={handleDeclineOnsite}
+                        disabled={declining}
+                        style={[styles.ghostBtn, { borderColor: '#EF4444', borderRadius: theme.radius.md, marginTop: theme.spacing.sm, opacity: declining ? 0.5 : 1 }]}
+                        activeOpacity={0.7}
+                    >
+                        <MaterialCommunityIcons name="close-octagon-outline" size={18} color="#EF4444" />
+                        <Text style={[theme.typography.bodySm, { color: '#EF4444', marginLeft: 8, fontWeight: '600' }]}>
+                            {t('activeJob.declineOnsite')}
+                        </Text>
+                    </TouchableOpacity>
+                )}
+
                 {/* Error */}
                 {error && (
                     <Text style={[theme.typography.bodySm, { color: theme.colors.error, textAlign: 'center', marginTop: theme.spacing.md }]}>
@@ -416,6 +526,82 @@ export default function ActiveJobScreen() {
                     />
                 </View>
             )}
+
+            {/* ═══ ADJUST PRICE BOTTOM SHEET ═══ */}
+            <BottomSheet
+                visible={adjustVisible}
+                onClose={() => setAdjustVisible(false)}
+                title={t('activeJob.adjustPrice')}
+                snapPoints={[420]}
+            >
+                <Text style={[theme.typography.bodySm, { color: theme.colors.textSecondary }]}>
+                    {t('activeJob.currentPrice')}: ${serviceFee.toFixed(2)}
+                </Text>
+
+                <Text style={[theme.typography.label, { color: theme.colors.textTertiary, marginTop: theme.spacing.md }]}>
+                    {t('activeJob.newPrice')}
+                </Text>
+                <TextInput
+                    value={newPrice}
+                    onChangeText={setNewPrice}
+                    keyboardType="decimal-pad"
+                    placeholder="0.00"
+                    placeholderTextColor={theme.colors.textTertiary}
+                    style={[
+                        styles.sheetInput,
+                        {
+                            borderColor: theme.colors.border,
+                            borderRadius: theme.radius.md,
+                            color: theme.colors.textPrimary,
+                        },
+                    ]}
+                />
+
+                <Text style={[theme.typography.label, { color: theme.colors.textTertiary, marginTop: theme.spacing.md }]}>
+                    {t('activeJob.reason')}
+                </Text>
+                <TextInput
+                    value={adjustReason}
+                    onChangeText={setAdjustReason}
+                    placeholder={t('activeJob.reason')}
+                    placeholderTextColor={theme.colors.textTertiary}
+                    multiline
+                    style={[
+                        styles.sheetInput,
+                        styles.sheetInputMultiline,
+                        {
+                            borderColor: theme.colors.border,
+                            borderRadius: theme.radius.md,
+                            color: theme.colors.textPrimary,
+                        },
+                    ]}
+                />
+
+                <View style={{ marginTop: theme.spacing.lg }}>
+                    <Button
+                        label={t('activeJob.sendToCustomer')}
+                        onPress={handleSendPriceAdjust}
+                        variant="primary"
+                        size="lg"
+                        loading={adjustSending}
+                        disabled={
+                            adjustSending ||
+                            !adjustReason.trim() ||
+                            isNaN(parseFloat(newPrice)) ||
+                            parseFloat(newPrice) <= 0
+                        }
+                    />
+                </View>
+                <TouchableOpacity
+                    onPress={() => setAdjustVisible(false)}
+                    style={{ alignItems: 'center', paddingVertical: 12 }}
+                    activeOpacity={0.7}
+                >
+                    <Text style={[theme.typography.bodySm, { color: theme.colors.textSecondary, fontWeight: '600' }]}>
+                        {t('request.cancel')}
+                    </Text>
+                </TouchableOpacity>
+            </BottomSheet>
 
             {/* ═══ JOB COMPLETE OVERLAY ═══ */}
             {jobComplete && (
@@ -555,6 +741,19 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         paddingVertical: 14,
         borderWidth: 1,
+    },
+
+    // Adjust-price sheet inputs
+    sheetInput: {
+        borderWidth: 1,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginTop: 6,
+        fontSize: 15,
+    },
+    sheetInputMultiline: {
+        minHeight: 64,
+        textAlignVertical: 'top',
     },
 
     // Bottom bar

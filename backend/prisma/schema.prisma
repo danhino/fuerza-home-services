@@ -159,6 +159,7 @@ model Job {
   paymentMethod          String        @default("IN_APP")
   cashCommissionOwed     Float?
   certificationLevel     String?
+  serviceId              String?       // catalog service id — enables Try Again / Book Again
   disputes               Dispute[]
 }
 

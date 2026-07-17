@@ -410,6 +410,63 @@ const en = {
     'home.map.recenter': 'Recenter',
     'home.map.yourLocation': 'Your Location',
 
+    // ── Certification ────────────────────────────────
+    'cert.certified': 'Certified & Insured',
+    'cert.independent': 'Independent Pro',
+    'cert.filter.all': 'All',
+    'cert.filter.certified': '✓ Certified',
+    'cert.filter.independent': '⚡ Independent',
+    'cert.nearby': '{certified} Certified · {independent} Independent pros nearby',
+    'cert.reviews': '⭐ {rating} · {count} reviews',
+    'cert.typical': 'Typical: ${min}–${max}',
+    'cert.book': 'Book {name}',
+    'cert.toggle.certified': 'Certified Pros',
+    'cert.toggle.independent': 'Independent Pros',
+
+    // ── Disclaimer ───────────────────────────────────
+    'disclaimer.certified.title': 'Before You Book',
+    'disclaimer.certified.body': 'Fuerza connects you with skilled professionals. While Certified technicians are licensed and insured, Fuerza Home Services is not responsible for:\n\n• Cost of parts, materials, or supplies\n• Pre-existing damage or conditions\n• Work performed outside the agreed scope\n• Any incidental or consequential damages\n\nPayment is authorized now and collected only when your job is complete.',
+    'disclaimer.certified.checkbox': 'I understand and agree to these terms',
+    'disclaimer.certified.cta': 'Continue to Book',
+    'disclaimer.independent.title': 'Independent Pro — Important Notice',
+    'disclaimer.independent.body': 'This is an Independent Pro who is NOT licensed or insured through Fuerza. We are not responsible for:\n\n• Quality of work performed\n• Cost of parts, materials, or supplies\n• Any damage to your property\n• Work that does not meet professional standards\n\nIndependent Pros are available for: General Handyman, House Cleaning, and Landscaping only.\n\nFor electrical, plumbing, HVAC, or pool work, please select a Certified technician.',
+    'disclaimer.independent.checkbox': 'I understand the risks and wish to proceed',
+    'disclaimer.independent.cta': 'Continue Anyway',
+    'disclaimer.independent.showCertified': 'Show Certified Pros Instead',
+    'disclaimer.cancel': 'Cancel',
+
+    // ── Payment Method ───────────────────────────────
+    'payment.methodTitle': 'Payment Method',
+    'payment.inApp': 'Pay in App',
+    'payment.inAppDesc': 'Secure payment collected on completion',
+    'payment.mostPopular': 'Most popular',
+    'payment.cash': 'Cash',
+    'payment.cashDesc': 'Pay technician directly. 12% service fee applies to estimated final price.',
+    'payment.authNote': '⚠ Your card will be authorized for up to ${amount} + $2.99 booking fee. No charge until job is complete. Price may be adjusted on-site by the technician.',
+    'payment.cashNote': '⚠ You will pay the technician directly in cash. A 12% platform fee applies to the estimated final price.',
+    'payment.viewTerms': 'View terms',
+
+    // ── Active Job: price adjust / decline ───────────
+    'activeJob.adjustPrice': 'Adjust Price',
+    'activeJob.currentPrice': 'Current agreed price',
+    'activeJob.newPrice': 'New price',
+    'activeJob.reason': 'Reason (required)',
+    'activeJob.sendToCustomer': 'Send to Customer',
+    'activeJob.priceChangeSent': 'Price change sent to customer',
+    'activeJob.priceChangeFailed': 'Failed to send price change',
+    'activeJob.declineOnsite': 'Decline On-Site',
+    'activeJob.declineWarning': 'Declining after arriving will affect your acceptance rate. Are you sure?',
+    'activeJob.declineFailed': 'Failed to decline job',
+
+    // ── Receipts (service/bookingFee/totalCharged defined above) ────
+    'receipt.paidInCash': '(paid in cash)',
+    'receipt.platformFee12': 'Platform fee (12%)',
+    'receipt.feeOwed': 'Fee owed to Fuerza',
+
+    // ── Jobs: expired / book again ───────────────────
+    'jobs.expired': 'Request Expired',
+    'jobs.tryAgain': 'Try Again',
+    'jobs.bookAgain': 'Book {name} Again',
 };
 
 export default en;

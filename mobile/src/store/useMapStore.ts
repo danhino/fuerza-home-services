@@ -6,6 +6,8 @@ import api from '../services/api';
 
 export type TradeFilter = 'ALL' | 'PLUMBER' | 'ELECTRICIAN' | 'HVAC' | 'POOL' | 'HOUSE_CLEANING' | 'GENERAL_HANDYMAN';
 
+export type CertificationLevel = 'CERTIFIED' | 'NON_CERTIFIED';
+
 export interface TechnicianLocation {
     techId: string;
     name: string;
@@ -14,6 +16,9 @@ export interface TechnicianLocation {
     trade: string;
     rating: number;
     isOnline: boolean;
+    certificationLevel: CertificationLevel;
+    averageRating: number;
+    reviewCount: number;
 }
 
 interface MapState {
@@ -76,6 +81,9 @@ export const useMapStore = create<MapState>((set, get) => ({
                 trade: t.trade,
                 rating: t.rating,
                 isOnline: true,
+                certificationLevel: t.certificationLevel === 'NON_CERTIFIED' ? 'NON_CERTIFIED' : 'CERTIFIED',
+                averageRating: t.averageRating ?? t.rating ?? 5.0,
+                reviewCount: t.reviewCount ?? 0,
             }));
             const map: Record<string, TechnicianLocation> = {};
             techs.forEach((t) => { map[t.techId] = t; });
@@ -100,10 +108,14 @@ export const useMapStore = create<MapState>((set, get) => ({
                 trade: data.trade ?? existing?.trade ?? 'PLUMBER',
                 rating: existing?.rating ?? 5.0,
                 isOnline: true,
+                certificationLevel: existing?.certificationLevel ?? 'CERTIFIED',
+                averageRating: existing?.averageRating ?? 5.0,
+                reviewCount: existing?.reviewCount ?? 0,
             });
         });
 
-        socketService.on('technician_came_online', (data: { id: string; trade: string; name: string; rating: number; isOnline: boolean }) => {
+        socketService.on('technician_came_online', (data: { id: string; trade: string; name: string; rating: number; isOnline: boolean; certificationLevel?: string; averageRating?: number; reviewCount?: number }) => {
+            const existing = get().technicianLocations[data.id];
             get().updateTechnicianLocation({
                 techId: data.id,
                 name: data.name,
@@ -112,6 +124,9 @@ export const useMapStore = create<MapState>((set, get) => ({
                 trade: data.trade,
                 rating: data.rating,
                 isOnline: true,
+                certificationLevel: data.certificationLevel === 'NON_CERTIFIED' ? 'NON_CERTIFIED' : (existing?.certificationLevel ?? 'CERTIFIED'),
+                averageRating: data.averageRating ?? existing?.averageRating ?? data.rating ?? 5.0,
+                reviewCount: data.reviewCount ?? existing?.reviewCount ?? 0,
             });
         });
 

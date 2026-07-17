@@ -32,7 +32,8 @@ export type CategoryId =
     | 'hvac'
     | 'general'
     | 'appliances'
-    | 'landscaping';
+    | 'landscaping'
+    | 'house_cleaning';
 
 export interface Category {
     id: CategoryId;
@@ -58,6 +59,7 @@ export const CATEGORIES: Category[] = [
     { id: 'general',    name: 'General',     icon: '🏠' },
     { id: 'appliances', name: 'Appliances',  icon: '🫙' },
     { id: 'landscaping',name: 'Landscaping', icon: '🌿' },
+    { id: 'house_cleaning', name: 'House Cleaning', icon: '🧹' },
 ];
 
 // ─── Service Catalog ─────────────────────────────────────────────────────────
@@ -378,6 +380,99 @@ export const SERVICES: Service[] = [
                 type: 'choice',
                 label: 'Add-ons needed?',
                 options: ['Just mowing', 'Mow + edge', 'Mow + edge + blow', 'Full yard cleanup'],
+            },
+        ],
+    },
+
+    // ── HOUSE CLEANING ────────────────────────────────────────────────────────
+    {
+        id: 'standard_cleaning',
+        name: 'Standard Cleaning',
+        icon: '🏠',
+        category: 'house_cleaning',
+        hint: 'Regular home cleaning service',
+        questions: [
+            {
+                id: 'home_size',
+                type: 'choice',
+                label: 'Home size?',
+                options: [
+                    'Studio / 1BR (< 700 sq ft)',
+                    '2BR (700–1,100 sq ft)',
+                    '3BR (1,100–1,800 sq ft)',
+                    '4BR+ (1,800+ sq ft)',
+                ],
+            },
+            {
+                id: 'cleaning_type',
+                type: 'choice',
+                label: 'Type of clean?',
+                options: [
+                    'Standard clean',
+                    'Deep clean',
+                    'Move-in / Move-out',
+                    'Post-construction',
+                ],
+            },
+            {
+                id: 'frequency',
+                type: 'choice',
+                label: 'How often?',
+                options: [
+                    'One-time',
+                    'Weekly',
+                    'Bi-weekly',
+                    'Monthly',
+                ],
+            },
+            {
+                id: 'extras',
+                type: 'choice',
+                label: 'Add-ons?',
+                options: [
+                    'No extras',
+                    'Inside fridge',
+                    'Inside oven',
+                    'Interior windows',
+                    'Laundry (wash + fold)',
+                ],
+            },
+        ],
+    },
+    {
+        id: 'deep_cleaning',
+        name: 'Deep Cleaning',
+        icon: '✨',
+        category: 'house_cleaning',
+        hint: 'Thorough top-to-bottom cleaning',
+        questions: [
+            {
+                id: 'home_size',
+                type: 'choice',
+                label: 'Home size?',
+                options: [
+                    'Studio / 1BR (< 700 sq ft)',
+                    '2BR (700–1,100 sq ft)',
+                    '3BR (1,100–1,800 sq ft)',
+                    '4BR+ (1,800+ sq ft)',
+                ],
+            },
+            {
+                id: 'last_cleaned',
+                type: 'choice',
+                label: 'Last professionally cleaned?',
+                options: [
+                    'Within 3 months',
+                    '3–6 months ago',
+                    '6–12 months ago',
+                    'Over a year / never',
+                ],
+            },
+            {
+                id: 'photo',
+                type: 'photo',
+                label: 'Photo of the main area',
+                hint: 'Helps us estimate scope accurately',
             },
         ],
     },
