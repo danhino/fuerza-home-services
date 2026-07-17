@@ -1,16 +1,39 @@
 import * as admin from 'firebase-admin';
-import * as path from 'path';
-import * as fs from 'fs';
 
-// Load service account from backend root
-const serviceAccountPath = path.resolve(__dirname, '../../firebase-service-account.json');
-if (fs.existsSync(serviceAccountPath) && !admin.apps.length) {
-    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+/**
+ * Resolve the Firebase service account.
+ * Production (Railway): FIREBASE_SERVICE_ACCOUNT env var holds the minified JSON —
+ * the firebase-service-account.json file is gitignored and never deployed.
+ * Local development: falls back to the JSON file in the backend root.
+ */
+function getServiceAccount(): admin.ServiceAccount | null {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        try {
+            return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) as admin.ServiceAccount;
+        } catch (e) {
+            console.error('[Firebase] Failed to parse FIREBASE_SERVICE_ACCOUNT env var:', e);
+            throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT environment variable');
+        }
+    }
+
+    // Local development fallback — file must exist
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        return require('../../firebase-service-account.json') as admin.ServiceAccount;
+    } catch (e) {
+        console.warn('[Firebase] firebase-service-account.json not found. Push notifications disabled.');
+        return null;
+    }
+}
+
+const serviceAccount = getServiceAccount();
+
+if (!admin.apps.length && serviceAccount) {
     admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+        credential: admin.credential.cert(serviceAccount),
     });
-} else if (!admin.apps.length) {
-    console.warn('[Firebase] firebase-service-account.json not found — push notifications disabled');
+} else if (!serviceAccount) {
+    console.warn('[Firebase] Firebase not initialized — push notifications will be skipped.');
 }
 
 /**
@@ -24,6 +47,13 @@ export const sendPushNotification = async (
     body: string,
     data?: Record<string, string>
 ): Promise<void> => {
+    // Expo tokens are delivered via Expo's push API and don't need Firebase Admin;
+    // only raw FCM tokens require an initialized Firebase app.
+    if (!pushToken.startsWith('ExponentPushToken') && !admin.apps.length) {
+        console.warn('[Firebase] Skipping push — Firebase not initialized');
+        return;
+    }
+
     try {
         if (pushToken.startsWith('ExponentPushToken')) {
             // Use Expo's push API for Expo tokens
