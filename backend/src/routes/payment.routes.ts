@@ -1,6 +1,7 @@
-import { Router, Request, Response } from 'express';
+import express, { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
+import { handleStripeWebhook } from '../controllers/payment.controller';
 import {
     createHold,
     createPaymentIntent,
@@ -14,6 +15,18 @@ import {
 
 const prisma = new PrismaClient();
 const router = Router();
+
+/**
+ * POST /api/payments/webhook
+ * Webhook route — raw body required for Stripe signature verification.
+ * server.ts exempts this path from the global express.json() parser;
+ * express.raw() here delivers the untouched body as a Buffer.
+ */
+router.post(
+    '/webhook',
+    express.raw({ type: 'application/json' }),
+    handleStripeWebhook
+);
 
 /**
  * POST /api/payments/create-payment-intent

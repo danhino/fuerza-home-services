@@ -27,14 +27,23 @@ const io = new Server(httpServer, {
 });
 
 app.use(cors());
-app.use(express.json({ limit: '100mb' }));
+
+// Global JSON parser — MUST skip the Stripe webhook path. Stripe signature
+// verification needs the raw body; if express.json() parses it first, the
+// route-level express.raw() sees the body as already parsed and skips,
+// breaking verification.
+const jsonParser = express.json({ limit: '100mb' });
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/payments/webhook') return next();
+  return jsonParser(req, res, next);
+});
 
 // ✅ quick sanity check endpoint
 app.get('/health', (_req, res) => {
   res.json({
-    ok: true,
-    port: process.env.PORT,
-    hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
+    status: 'ok',
+    version: process.env.npm_package_version ?? '1.0.0',
+    timestamp: new Date().toISOString(),
   });
 });
 

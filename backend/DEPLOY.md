@@ -25,7 +25,17 @@ to Railway and submitting the iOS app to the Apple App Store.
       URL: https://your-railway-url.railway.app/api/payments/webhook
       Events: payment_intent.succeeded, payment_intent.payment_failed,
               payment_intent.amount_capturable_updated
+      For local webhook testing, use the Stripe CLI:
+        stripe listen --forward-to localhost:3000/api/payments/webhook
+        Copy the whsec_ it prints into your local .env as
+        STRIPE_WEBHOOK_SECRET
 - [ ] Copy STRIPE_WEBHOOK_SECRET from webhook registration
+      Note: The webhook path exemption in server.ts skips the
+      global JSON parser for any request whose originalUrl is
+      exactly '/api/payments/webhook'. If this route path ever
+      changes, find the conditional parser block (search for
+      'originalUrl' in server.ts) and update the exemption to
+      match.
 - [ ] Verify Stripe Connect is enabled for live mode
 - [ ] Complete Stripe platform profile (business details)
 - [ ] Note: PaymentIntents use capture_method: manual
@@ -101,7 +111,7 @@ Add railway.json to backend/:
 {
   "build": { "builder": "NIXPACKS" },
   "deploy": {
-    "startCommand": "npx prisma migrate deploy && node dist/server.js",
+    "startCommand": "npx prisma migrate deploy && npm start",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
