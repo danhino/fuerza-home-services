@@ -25,7 +25,7 @@ import { useLocationStore } from '../../src/store/useLocationStore';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import api from '../../src/services/api';
 import { ProgressBar } from './request';
-import { useStripe } from '@stripe/stripe-react-native';
+import { useStripe } from '../../src/components/PlatformStripe';
 import { DisclaimerModal } from '../../src/components/DisclaimerModal';
 import { t } from '../../src/i18n';
 

@@ -397,6 +397,9 @@ const es = {
     'tabs.jobs': 'Trabajos',
     'tabs.earnings': 'Ganancias',
     'tabs.profile': 'Perfil',
+    'tabs.request': 'Solicitar',
+    'tabs.myJobs': 'Mis Trabajos',
+    'tabs.dashboard': 'Panel',
 
     // ── Map Dashboard ───────────────────────────────
     'home.map.techsNearby': '{count} técnicos disponibles cerca',

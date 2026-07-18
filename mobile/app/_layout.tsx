@@ -4,7 +4,7 @@ import { useAuthStore } from '../src/store/useAuthStore';
 import { View, ActivityIndicator } from 'react-native';
 import { useLanguageStore } from '../src/i18n';
 import { useThemeStore } from '../src/store/useThemeStore';
-import { StripeProvider } from '@stripe/stripe-react-native';
+import { StripeProvider } from '../src/components/PlatformStripe';
 import { STRIPE_PUBLISHABLE_KEY } from '../src/constants/Config';
 import { registerForPushNotificationsAsync, setupNotificationHandlers } from '../src/services/notifications';
 import api from '../src/services/api';

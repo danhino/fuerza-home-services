@@ -396,6 +396,9 @@ const en = {
     'tabs.jobs': 'Jobs',
     'tabs.earnings': 'Earnings',
     'tabs.profile': 'Profile',
+    'tabs.request': 'Request',
+    'tabs.myJobs': 'My Jobs',
+    'tabs.dashboard': 'Dashboard',
 
     // ── Map Dashboard ───────────────────────────────
     'home.map.techsNearby': '{count} technicians available nearby',

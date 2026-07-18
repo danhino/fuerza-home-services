@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker } from '../../src/components/PlatformMap';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { useTheme } from '../../src/hooks/useTheme';
